@@ -1,0 +1,4 @@
+node_modules/
+*.tgz
+tools/report.json
+tools/live-report.json

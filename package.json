@@ -1,0 +1,54 @@
+{
+  "name": "dsh-ark-wiki",
+  "version": "0.3.0",
+  "description": "Arknights (明日方舟) knowledge lookup tool for DSH: operators, skills, talents, archives, items, stages and story text from the PRTS Wiki.",
+  "license": "MIT",
+  "author": "dsh-ark-wiki contributors",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wsk114514/dsh-ark-wiki.git"
+  },
+  "homepage": "https://github.com/wsk114514/dsh-ark-wiki#readme",
+  "bugs": {
+    "url": "https://github.com/wsk114514/dsh-ark-wiki/issues"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "dsh",
+    "arknights",
+    "明日方舟",
+    "prts",
+    "wiki",
+    "tool"
+  ],
+  "engines": {
+    "node": ">=22",
+    "dsh": ">=0.2.1-rc.1"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-tools": "^0.2.1-rc.2"
+  },
+  "dependencies": {
+    "ark-info": "^0.1.1"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
