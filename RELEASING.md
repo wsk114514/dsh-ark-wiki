@@ -16,7 +16,7 @@
 | `package.json` → `repository.url` | `git+https://github.com/wsk114514/dsh-ark-wiki.git` |
 | `package.json` → `homepage` | `https://github.com/wsk114514/dsh-ark-wiki#readme` |
 | `package.json` → `bugs.url` | `https://github.com/wsk114514/dsh-ark-wiki/issues` |
-| `README.md` 徽章 | `https://dsh-plugin.org/plugins/wsk114514/dsh-ark-wiki`（收录后若 slug 不同再改） |
+| `README.md` 徽章 | 未发布 npm、未收录 dsh-plugin.org 时只放 CI / License 徽章；收录后再换成 `dsh-plugin.org/badges/listed.svg`（见第 6 节） |
 
 若以后改仓库名或换账号，一次性替换并自查（应输出 0 行）：
 
@@ -27,18 +27,23 @@
 ## 1. 发布前自检（不联网 + 联网）
 
 ```powershell
-# 契约与生命周期（离线，秒级）
+# 契约与生命周期（离线，秒级）；CI 跑的就是这条
+npm install        # 只装 devDependency @deepseek-ai/dsh-tools
+npm test
 node tools/harness.mjs offline
 
-# 真实数据端到端（23 例，需要访问 prts.wiki）
+# 真实数据端到端（24 例，需要访问 prts.wiki）
 $env:HARNESS_SUMMARY='1'; node tools/harness.mjs live
 
 # npm 会打包哪些文件、manifest 是否合法
-npm pack --dry-run
+npm run pack:check
 ```
 
 要求：`offline` 全 PASS；`live` 输出 `allValid: true`；`npm pack --dry-run` 里只出现
 `lib/`、`cordis.patch.yml`、`README.md`、`LICENSE`、`package.json`（`tools/` 不进包）。
+
+CI：`.github/workflows/ci.yml` 在 push / PR 时执行 `npm ci` → `npm test` → `npm run pack:check`，
+只验证离线契约与打包清单，不访问 prts.wiki（线上用例靠手动跑 `live`）。
 
 ## 2. 版本与兼容声明
 
@@ -160,6 +165,10 @@ npm 包发布后（见第 3 节「已知阻塞」）改用 `dsh plugin --profile
 
 前置条件（全部已满足后再提）：公开仓库 + `dsh-plugin` topic + 根目录 `package.json` +
 README 含安装命令（npm 未发布时写 `dsh plugin --profile web add github:wsk114514/dsh-ark-wiki`）+ 导出 `apply(ctx)`。
+
+**提交记录**：2026-10-20 已用 GitHub API 向 `dshplugin/dsh-plugin-hub` 提交 Issue
+[#324](https://github.com/dshplugin/dsh-plugin-hub/issues/324)（模板见下，含真实输出示例）。
+审核通过前这里的状态是 `unconfirmed`，README 不放 `listed.svg` 徽章；通过后再按第 6 节替换。
 
 打开 <https://dsh-plugin.org/zh/submit>，用模板提 Issue，可直接复制：
 

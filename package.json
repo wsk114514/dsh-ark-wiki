@@ -6,6 +6,11 @@
   "author": "dsh-ark-wiki contributors",
   "type": "module",
   "main": "lib/index.js",
+  "scripts": {
+    "test": "node tools/harness.mjs offline",
+    "test:live": "node tools/harness.mjs live",
+    "pack:check": "npm pack --dry-run"
+  },
   "exports": {
     ".": "./lib/index.js",
     "./cordis.patch.yml": "./cordis.patch.yml",
@@ -45,6 +50,9 @@
   },
   "dependencies": {
     "ark-info": "^0.1.1"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh-tools": "^0.2.1-rc.2"
   },
   "dsh": {
     "bundle": {

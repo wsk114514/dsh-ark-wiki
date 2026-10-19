@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline:
+    name: offline contract + packaging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dev dependencies
+        run: npm ci --no-audit --no-fund
+
+      # No network: compiles the tool schema through the host's own dsh-tools
+      # build, runs apply(ctx) against a fake ctx, and asserts argument
+      # rejection for missing/typed/enum-invalid args.
+      - name: Offline contract harness
+        run: npm test
+
+      # Guards the published file list (lib/, cordis.patch.yml, README, LICENSE).
+      - name: Packaging manifest
+        run: npm run pack:check

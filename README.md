@@ -2,7 +2,10 @@
 
 为 DSH 提供一个模型可调用的工具 `ark_wiki_lookup`：查询 PRTS Wiki 的《明日方舟》数据（干员及其技能/天赋/档案/密录、物品、关卡、剧情、干员出场表与「泰拉大典」世界观考据），返回结构化结果，由模型据此作答。
 
-[![Listed on dsh-plugin.org](https://dsh-plugin.org/badges/listed.svg)](https://dsh-plugin.org/plugins/wsk114514/dsh-ark-wiki)
+[![CI](https://github.com/wsk114514/dsh-ark-wiki/actions/workflows/ci.yml/badge.svg)](https://github.com/wsk114514/dsh-ark-wiki/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+
+> **目前的分发方式只有 GitHub 源码安装**：npm 尚未发布（2026 年的 2FA 政策，见 [RELEASING.md](RELEASING.md)），dsh-plugin.org 收录申请已提交、等待人工核实。
 
 > **非官方粉丝项目**：与 Hypergryph（鹰角网络）、《明日方舟》官方及 PRTS Wiki 均无隶属关系；所有游戏数据与 wiki 文本的版权归原权利方，本项目仅做实时查询与展示，仅供个人非商业用途。详见[免责声明](#免责声明与权限)。
 
@@ -135,8 +138,11 @@ dsh plugin --profile desktop add C:\path\to\dsh-ark-wiki
 
 ```
 dsh-ark-wiki/
-├── package.json         # name/version/type/exports/dsh.bundle.patch/peerDependencies
+├── package.json         # name/version/type/exports/dsh.bundle.patch/peerDependencies/scripts
+├── package-lock.json    # CI 用 npm ci 锁定 devDependency（@deepseek-ai/dsh-tools）
 ├── cordis.patch.yml     # 插件加载补丁（- insert: id: dsh-ark-wiki）
+├── .github/workflows/
+│   └── ci.yml           # push/PR：npm ci + 离线契约 + npm pack 清单
 ├── lib/
 │   ├── index.js         # defineTool 定义、output schema、render、apply(ctx)
 │   ├── prts.js          # PRTS HTTP 层：apiGet / cargoQuery / searchTitles / pageContent / 模板解析
@@ -151,11 +157,15 @@ dsh-ark-wiki/
 ## 本地测试
 
 ```powershell
+npm install                      # 只为跑测试装 @deepseek-ai/dsh-tools（devDependency，不进包）
+npm test                         # = node tools/harness.mjs offline，不联网
 node tools/harness.mjs offline   # 不联网：schema 编译、参数校验、apply(ctx) 生命周期、effect 清理
-node tools/harness.mjs live      # 联网：23 个真实查询 + 期望断言（技能/天赋/档案/密录/剧情/干员出场/泰拉大典），输出 allValid
+node tools/harness.mjs live      # 联网：24 个真实查询 + 期望断言（技能/天赋/档案/密录/剧情/干员出场/泰拉大典），输出 allValid
 $env:HARNESS_SUMMARY='1'; node tools/harness.mjs live              # 只打印「allValid + 每例耗时/状态/失败标记」
 $env:HARNESS_REPORT='tools/report.json'; node tools/harness.mjs live  # 额外落盘完整 JSON（绕开 PowerShell 5.1 重定向写 UTF-16 的坑）
 ```
+
+CI（`.github/workflows/ci.yml`）在每次 push / PR 时跑 `npm ci` + `npm test` + `npm pack --dry-run`，只验证离线契约与打包清单，不需要访问 prts.wiki。
 
 `harness.mjs` 直接 import `lib/index.js`，用真实 `defineTool` 编译出的 JSON Schema 配合 `@deepseek-ai/dsh-tools` 的 `validateJsonSchemaValue` 校验，因此与宿主行为一致；它还用假的 `ctx`（`tools.register` + `effect`）调用 `apply(ctx)`，验证注册数量、名称与 dispose 链。live 用例里阿米娅/12F/银灰/玫兰莎/剧情用例带 `assert`：技能条数、专精行、天赋层级、潜能增强、`？？？` 占位被过滤、体检档案出身地、档案段落、密录页面指针、剧情 kind/章节/登场角色/台词截断、关卡关联剧情 before/after；干员出场用例断言 `total`/`earliest`（克莱门莎 = `BP-ST-1 浪潮守望者`，2024-06-05）、主线与密录分布；世界观用例断言地理信息框 `首都`、组织模板参数、`泰拉词库` 译名与相关信息。
 
@@ -181,4 +191,8 @@ $env:HARNESS_REPORT='tools/report.json'; node tools/harness.mjs live  # 额外�
 
 ## 发布
 
-发布到 npm、打 `dsh-plugin` topic、提交 dsh-plugin.org / dsh.works 收录的完整步骤见 [RELEASING.md](./RELEASING.md)。
+- GitHub：仓库已公开，`dsh-plugin` topic 已加，tag `v0.4.0` 与 Release 已发布。
+- npm：**未发布**。npm 2026 年起要求发布者使用安全密钥 2FA，而新账号已无法登记 TOTP（`npm profile enable-2fa` 返回 E404）；在满足该条件前只走 GitHub 源码安装。
+- dsh-plugin.org：收录申请已提交（[dshplugin/dsh-plugin-hub#324](https://github.com/dshplugin/dsh-plugin-hub/issues/324)），等待人工核实时状态为 `unconfirmed`。
+
+完整步骤与已知阻塞见 [RELEASING.md](./RELEASING.md)。
