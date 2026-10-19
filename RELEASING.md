@@ -76,11 +76,35 @@ arknights
 prts
 ```
 
-发布：
+### 已知阻塞：npm 发布策略（实测 2026-10-19）
+
+本机 `npm publish --access public` 返回：
+
+```
+npm error code E403
+npm error 403 PUT https://registry.npmjs.org/dsh-ark-wiki
+npm error 403 - Two-factor authentication or granular access token with bypass 2fa enabled is required to publish packages.
+```
+
+而 `npm profile enable-2fa auth-and-writes` 返回：
+
+```
+npm error 404 Not Found - POST https://registry.npmjs.org/-/npm/v1/user
+npm error 404 - Adding a new TOTP (time-based one-time password) two-factor authentication is no longer supported.
+npm error 404   Please visit https://www.npmjs.com/settings/<user>/tfa to add a security key 2FA method instead.
+```
+
+即：**新账号已不能再用验证器 App（TOTP）加 2FA，发布又强制要求 2FA**。当前可走的发布路径（若以后要上架 npm）：
+
+1. 在 `https://www.npmjs.com/settings/<user>/tfa` 注册安全密钥（Windows Hello / passkey / USB key）。
+2. 装 npm CLI **≥ 11.15.0**（[staged publishing](https://github.blog/changelog/2026-05-22-staged-publishing-and-new-install-time-controls-for-npm/) 的最低版本）。
+3. `npm stage publish --access public` 把 tarball 送进 stage 队列，再在 npmjs.com（或 CLI）用安全密钥批准；2026-10 起 staged publishing 也支持新建包。
+4. 备选：granular access token 勾选 *Bypass 2FA*（服务端报错里把它列为可用方式），但 npm 已开始收紧这类 token 的直发权限。
+
+在 npm 发布之前，用 GitHub 源码安装分发：
 
 ```powershell
-npm publish --access public
-# 需要撤销的话只在 72 小时内有效：npm unpublish dsh-ark-wiki@0.3.0
+dsh plugin --profile web add github:wsk114514/dsh-ark-wiki
 ```
 
 发布后立刻验证别人能装：
@@ -111,10 +135,14 @@ node -e "import('dsh-ark-wiki').then(async m => { const reg=[]; await m.apply({ 
 
 ## 4. 在 DSH 里挂载
 
+npm 包发布前用 GitHub 源码安装：
+
 ```powershell
-dsh plugin --profile web add dsh-ark-wiki
+dsh plugin --profile web add github:wsk114514/dsh-ark-wiki
 # 然后把 "dsh-ark-wiki" 追加到 %DSH_HOME%\profiles\web\package.json 的 dsh.profile.bundles 数组
 ```
+
+npm 包发布后（见第 3 节「已知阻塞」）改用 `dsh plugin --profile web add dsh-ark-wiki`。
 
 或在会话里用 `plugin_manager`：`action: install_bundle`，`target: dsh-ark-wiki`。
 之后直接提问「阿米娅的技能和天赋」验证工具被调用。
@@ -124,13 +152,13 @@ dsh plugin --profile web add dsh-ark-wiki
 ### 5.1 dsh-plugin.org（DSH Plugin Hub，免费，初始 `unconfirmed`，人工核实后 `verified`）
 
 前置条件（全部已满足后再提）：公开仓库 + `dsh-plugin` topic + 根目录 `package.json` +
-README 含 `dsh plugin --profile web add dsh-ark-wiki` + 导出 `apply(ctx)`。
+README 含安装命令（npm 未发布时写 `dsh plugin --profile web add github:wsk114514/dsh-ark-wiki`）+ 导出 `apply(ctx)`。
 
 打开 <https://dsh-plugin.org/zh/submit>，用模板提 Issue，可直接复制：
 
 ```markdown
 ### 仓库地址
-<https://github.com/<你的用户名>/dsh-ark-wiki>
+<https://github.com/wsk114514/dsh-ark-wiki>
 
 ### 一句话价值
 在 DSH 对话里直接查明日方舟资料——干员属性/技能/天赋/档案/密录、物品、关卡、剧情台词，全部来自 PRTS Wiki 实时数据。
@@ -139,7 +167,7 @@ README 含 `dsh plugin --profile web add dsh-ark-wiki` + 导出 `apply(ctx)`。
 工具与能力
 
 ### 安装命令
-dsh plugin --profile web add dsh-ark-wiki
+dsh plugin --profile web add github:wsk114514/dsh-ark-wiki
 
 ### 兼容与运行要求
 DSH >= 0.2.1-rc.1（engines.dsh），Node >= 22，Windows/macOS/Linux；需要访问 https://prts.wiki；只读、无需 API Key。
@@ -176,4 +204,4 @@ MIT（游戏数据与 wiki 文本版权归 Hypergryph / PRTS，插件为非官�
 
 本项目是非官方粉丝工具：与 Hypergryph（鹰角网络）、《明日方舟》官方及 PRTS Wiki 无隶属关系；
 数据版权归原权利方，仅做实时读取与展示，仅供个人非商业使用。不要把查询结果批量落盘再分发，
-也不要在 README 或宣传中暗示官方授权。详见 `LICENSE` 末尾与 README「免责声明与权限」。
+也不要在 README 或宣传中暗示官方授权。详见 `README.md` 的「免责声明与权限」与 `LICENSE`。

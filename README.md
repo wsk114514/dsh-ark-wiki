@@ -6,12 +6,22 @@
 
 > **非官方粉丝项目**：与 Hypergryph（鹰角网络）、《明日方舟》官方及 PRTS Wiki 均无隶属关系；所有游戏数据与 wiki 文本的版权归原权利方，本项目仅做实时查询与展示，仅供个人非商业用途。详见[免责声明](#免责声明与权限)。
 
-## 快速安装（npm）
+## 安装
+
+### 方式一：从 GitHub 源码安装（当前可用）
 
 ```bash
 # 1. 装到目标 profile（把 web 换成 desktop / 你实际使用的 profile 名）
+dsh plugin --profile web add github:wsk114514/dsh-ark-wiki
+# 2. 把包名 "dsh-ark-wiki" 写进该 profile package.json 的 dsh.profile.bundles 数组
+```
+
+### 方式二：npm
+
+包**尚未发布到 npm**（npm 2026 年起要求发布者使用安全密钥 / 2FA，见 [RELEASING.md](RELEASING.md) 的「已知阻塞」一节）。发布后改为：
+
+```bash
 dsh plugin --profile web add dsh-ark-wiki
-# 2. 把包名写进该 profile package.json 的 dsh.profile.bundles 数组
 ```
 
 装完直接在对话里用自然语言提问，例如：
