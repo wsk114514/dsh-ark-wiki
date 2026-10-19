@@ -19,14 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-This license covers the plugin source code in this repository only.
-
-It does NOT cover game data, wiki text or other content retrieved at runtime
-from the PRTS Wiki (https://prts.wiki) or the game "Arknights" (明日方舟).
-All such content remains the property of its respective rights holders
-(Hypergryph / 鹰角网络 and the PRTS Wiki contributors). This project is an
-unofficial, non-commercial fan tool and is not affiliated with, endorsed by,
-or sponsored by any of them.
