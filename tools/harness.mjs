@@ -142,6 +142,43 @@ const cases = mode === 'offline'
       },
       { args: { query: 'Amiya' }, expect: ['operator', 'ok'] },
       { args: { query: 'アーミヤ' }, expect: ['operator', 'ok'] },
+      {
+        args: { query: '克莱门莎 出场' },
+        expect: ['story', 'ok'],
+        assert: value => value.entry?.kind === '干员出场'
+          && value.entry.total > 20
+          && value.entry.earliest?.title === 'BP-ST-1 浪潮守望者'
+          && value.entry.earliest?.date === '2024-06-05'
+          && value.entry.appearances.length > 5
+          && value.entry.appearances.every(item => !('navIndex' in item))
+      },
+      {
+        args: { query: '阿米娅 出场' },
+        expect: ['story', 'ok'],
+        assert: value => value.entry?.kind === '干员出场'
+          && value.entry.counts.main > 50
+          && value.entry.counts.memory > 0
+      },
+      {
+        args: { query: '维多利亚', category: 'world' },
+        expect: ['world', 'ok'],
+        assert: value => value.entry?.section === '地理'
+          && value.entry.infobox?.['首都'] === '伦蒂尼姆'
+          && (value.entry.related ?? []).some(link => link.name === '伦蒂尼姆')
+      },
+      {
+        args: { query: '罗德岛', category: 'world' },
+        expect: ['world', 'ok'],
+        assert: value => value.entry?.section === '组织'
+          && String(value.entry.details?.['日文名'] ?? '').includes('ロドス')
+      },
+      {
+        args: { query: '源石', category: 'world' },
+        expect: ['world', 'ok'],
+        assert: value => (value.entry?.terms ?? []).some(term => term.zh === '源石' && term.en === 'Originiums')
+      },
+      { args: { query: '泰拉年表' }, expect: ['world', 'ok'] },
+      { args: { query: '不存在的世界观词条xyz' }, expect: ['unknown', 'not_found'] },
       { args: { query: '阿米娅的信物' }, expect: ['item', 'ok'] },
       { args: { query: '至纯源石' }, expect: ['item', 'ok'] },
       { args: { query: '固源岩', category: 'item' }, expect: ['item', 'ok'] },

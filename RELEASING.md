@@ -30,7 +30,7 @@
 # 契约与生命周期（离线，秒级）
 node tools/harness.mjs offline
 
-# 真实数据端到端（17 例，需要访问 prts.wiki）
+# 真实数据端到端（23 例，需要访问 prts.wiki）
 $env:HARNESS_SUMMARY='1'; node tools/harness.mjs live
 
 # npm 会打包哪些文件、manifest 是否合法
@@ -42,7 +42,7 @@ npm pack --dry-run
 
 ## 2. 版本与兼容声明
 
-- `version`：当前 `0.3.0`。以后每次发布递增，不要复用版本号（npm 上版本永久占用）。
+- `version`：当前 `0.4.0`。以后每次发布递增，不要复用版本号（npm 上版本永久占用）。
 - `engines.dsh: ">=0.2.1-rc.1"`：宿主据此决定是否加载。DSH 从 **0.2.1-alpha.4** 起优先读
   `engines.dsh`，不再读 `peerDependencies` 里的 `@deepseek-ai/dsh*` 范围；更老的宿主才走 peer 检查。
   **不要**在 `dependencies` 里列 `@deepseek-ai/*`（会被 pnpm 装进 profile，和宿主形成双实例）。
@@ -59,7 +59,7 @@ npm whoami        # 应打印你的用户名，而不是 ENEEDAUTH
 
 git init
 git add -A
-git commit -m "feat: dsh-ark-wiki 0.3.0 - Arknights PRTS lookup tool for DSH"
+git commit -m "feat: dsh-ark-wiki 0.4.0 - Arknights PRTS lookup tool for DSH"
 
 # 在 GitHub 上新建同名公开仓库，然后：
 git remote add origin https://github.com/<你的用户名>/dsh-ark-wiki.git
@@ -132,7 +132,7 @@ dsh plugin --profile web add dsh-ark-wiki
 ```powershell
 npm pack
 # 在临时空目录里装 tarball，再直接用 Node 加载打包产物
-npm i C:\path\to\dsh-ark-wiki-0.3.0.tgz --no-audit --no-fund
+npm i C:\path\to\dsh-ark-wiki-0.4.0.tgz --no-audit --no-fund
 node -e "import('dsh-ark-wiki').then(async m => { const reg=[]; await m.apply({ tools:{ register:t=>(reg.push(t),()=>{}) }, effect:f=>f() }); console.log(reg.map(t=>t.name)); const v=await reg[0].execute({query:'银灰'},{}); console.log(v.status, v.entry.name, v.entry.skills.length, v.entry.talents.length); })"
 ```
 
@@ -204,7 +204,7 @@ MIT（游戏数据与 wiki 文本版权归 Hypergryph / PRTS，插件为非官�
 
 - 用详情页 URL 替换 README 顶部徽章中的 `<owner>/<slug>`：
   `[![Listed on dsh-plugin.org](https://dsh-plugin.org/badges/listed.svg)](https://dsh-plugin.org/plugins/<owner>/<slug>)`
-- 打 git tag 并写 Release：`git tag v0.3.0 && git push --tags`。
+- 打 git tag 并写 Release：`git tag v0.4.0 && git push --tags`。
 - 后续发版：改 `version` → `npm publish` → `git tag`。不要 force-push 已发布 tag。
 
 ## 7. 合规提醒
