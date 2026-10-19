@@ -107,6 +107,13 @@ npm error 404   Please visit https://www.npmjs.com/settings/<user>/tfa to add a 
 dsh plugin --profile web add github:wsk114514/dsh-ark-wiki
 ```
 
+**GitHub 源安装实测（2026-10-19）**：在空目录 `npm i github:wsk114514/dsh-ark-wiki` → 22s 装完 25 个包，
+随后 Node 直接加载该包：导出 `name`、`inject: ['tools']`、注册 1 个 `ark_wiki_lookup`，
+live 查询「至纯源石」返回 `status: ok / category: item / matchedBy: exact`，`render` 返回 1 个文本块。
+
+> 若 `git push` 报 `Recv failure: Connection was reset` 或 `Couldn't connect to server`，先重试，
+> 再不行用 `git -c http.version=HTTP/1.1 push`（本机实测该参数一次成功，而默认 HTTP/2 连续失败）。
+
 发布后立刻验证别人能装：
 
 ```powershell
