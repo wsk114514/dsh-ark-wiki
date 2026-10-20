@@ -550,6 +550,8 @@ const cases = mode === 'offline'
         args: { hint: '塔露拉会实装吗' },
         assert: value => value.candidates.some(item => item.operator === '塔露拉')
           && value.candidates.every(item => item.kind === 'new' || item.kind === 'alter')
+          // BOSS 模板 / 主线核心整体票数 ×0.95，理由里要写明
+          && value.candidates.some(item => item.operator === '塔露拉' && /下调 5%/.test(item.reason))
       },
       {
         // 地区票过滤：普瑞赛斯（拉特兰 5/69）与奥卢斯（拉特兰 4/22）曾因同场
@@ -560,6 +562,14 @@ const cases = mode === 'offline'
           && !value.candidates.some(item => ['普瑞赛斯', '奥卢斯'].includes(item.operator))
           && /占该人物出场票/.test(value.prediction_basis)
           && value.candidates.some(item => /拉特兰/.test(item.reason))
+      },
+      {
+        // 泛称清理 + 末尾结果表格：哥伦比亚池里「保镖」曾作为泛称职业角色混进候选。
+        tool: arkBannerPredict,
+        args: { hint: '哥伦比亚的下一个新角色' },
+        assert: (value, text) => value.candidates.length >= 1
+          && !value.candidates.some(item => ['保镖', '保安', '随从'].includes(item.operator))
+          && /\| 顺序 \| 角色 \| 类型 \| 置信度 \| 关键依据 \|/.test(text)
       },
       {
         tool: arkBannerPredict,
@@ -590,12 +600,13 @@ for (const testCase of cases) {
   const value = r.value
   const violations = T.validateJsonSchemaValue(tool.output.schema, value)
   const blocks = tool.output.render(args, value)
+  const rendered = blocks.map(b => b.text).join('\n')
   const expectationMet = matchesExpectation(tool, value, testCase.expect)
   let assertMet
   let assertError
   if (testCase.assert) {
     try {
-      assertMet = testCase.assert(value) === true
+      assertMet = testCase.assert(value, rendered) === true
     } catch (error) {
       assertMet = false
       assertError = String(error?.message ?? error)
