@@ -1,6 +1,6 @@
 # dsh-ark-wiki
 
-为 DSH 提供两个模型可调用的工具：`ark_wiki_lookup` 查询 PRTS Wiki 的《明日方舟》数据（干员及其技能/天赋/档案/密录、物品、关卡、剧情、干员出场表与「泰拉大典」世界观考据），返回结构化结果，由模型据此作答；`ark_banner_predict` 按 PRTS「卡池一览」的历史排期做**概率性**的下期卡池与 UP 干员预测（带置信度、理由与信号）。
+为 DSH 提供两个模型可调用的工具：`ark_wiki_lookup` 查询 PRTS Wiki 的《明日方舟》数据（干员及其技能/天赋/档案/密录、物品、关卡、剧情、干员出场表与「泰拉大典」世界观考据），返回结构化结果，由模型据此作答；`ark_banner_predict` 默认根据剧情卡司快照做**概率性**的新角色 / 异格候选预测（剧情里反复出现但没进过卡池的人物、长期无新剧情的干员异格），也可按 PRTS「卡池一览」的历史排期预测下期卡池与 UP 干员；两者都带置信度、理由与信号。
 
 [![CI](https://github.com/wsk114514/dsh-ark-wiki/actions/workflows/ci.yml/badge.svg)](https://github.com/wsk114514/dsh-ark-wiki/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
@@ -113,24 +113,33 @@ dsh plugin --profile desktop add C:\path\to\dsh-ark-wiki
 
 ### 第二个工具：`ark_banner_predict`
 
+它回答两类不同的问题，默认是第一类：
+
 ```jsonc
-// 参数
-{ "hint": "莱塔尼亚活动", "banner_type": "standard", "region": "cn" }
-// banner_type 可省略（standard | limited | rerun | kernel），省略时按 hint 自动推断
-// region 默认 cn，可选 global | jp | kr | tw（非国服只在 caveats 里提示版本偏移）
+// 新角色 / 异格（默认 debut 模式）
+{ "hint": "下个版本可能回阿戈尔或伊比利亚" }        // 地区线索 → 该地区剧情里的未实装人物
+{ "hint": "塔露拉会实装吗" }                        // 点名未实装人物
+{ "hint": "安洁莉娜很久没新剧情了，会不会异格" }      // 异格候选
+// 卡池排期模式（必须给出卡池类型关键词或 banner_type）
+{ "hint": "莱塔尼亚活动", "banner_type": "standard" } // 常驻标准轮换
+{ "hint": "夏季限定池" }                             // 限定：只推断同池陪跑 6★
+// banner_type 可选 debut | standard | limited | rerun | kernel，region 默认 cn
 ```
 
 返回 canonical JSON（`output.schema` 同样声明了 `additionalProperties: false`）：
 
 | 字段 | 含义 |
 | --- | --- |
-| `prediction_basis` | 用了哪几页卡池历史、多少期、当前时间、hint 识别出的信号；线索不足时这里会明说「线索不足，以下为基于历史规律的宽泛参考」 |
-| `candidates[]` | 3–4 名候选：`{ operator, confidence, reason, signals[] }`；春节/新年限定或数据不可用时为空数组 |
-| `candidates[].confidence` | `high`（多信号共振）/ `medium`（单一强信号）/ `low`（线索不足或数据降级，仅方向性参考） |
-| `candidates[].signals` | `skin_rerun` 皮肤复刻、`interval_overdue` 进店间隔超期、`story_tie_in` 剧情地区 / 长期无新剧情地区、`story_appearance` 剧情中反复出现的角色、`anniversary_window` 周年/季节窗口、`merch_or_ep` 周边/EP |
-| `caveats` | 必须转述给用户的不确定性说明（预测性质、数据滞后、复刻窗口规律、服务器偏移、剧情代理指标） |
+| `prediction_basis` | 新角色模式：扫描了多少段剧情、识别出多少未实装人物/异格候选、数据生成日期、hint 里的地区与点名；排期模式：用了哪几页卡池历史与多少期 |
+| `candidates[]` | 3–4 名候选：`{ operator, kind?, confidence, reason, signals[] }`；春节/新年限定或数据不可用时为空数组 |
+| `candidates[].kind` | 仅新角色模式：`new` 剧情里出现但未实装的**新角色**、`alter` 已有干员的**异格**候选 |
+| `candidates[].confidence` | `high`（多信号共振）/ `medium`（单一强信号）/ `low`（弱信号或数据降级，仅方向性参考） |
+| `candidates[].signals` | `story_appearance` 剧情中反复出现的未实装人物、`story_tie_in` 剧情地区与 hint 吻合、`story_recent` 近期剧情活跃、`alter_candidate` 长期无新剧情的异格候选、`skin_rerun` 皮肤复刻、`interval_overdue` 进店间隔超期、`anniversary_window` 周年/季节窗口、`merch_or_ep` 周边/EP |
+| `caveats` | 必须转述给用户的不确定性说明（预测性质、剧情出场只是弱信号、别名漏判、兑换规则等） |
 
-打分以**剧情信号**为主、排期历史为辅：先解析 hint 里的地区 / 季节（庆典、夏季、联动）/ 卡池类型 / 皮肤信号；再给「剧情中出场次数多」的重要角色加分（`story_appearance`，主线 / 活动 / 密录合计，2 次起算、上限 +2）；给「所属地区超过 9 个月没有新剧情」的角色加分（`story_tie_in`，上限 +1.5，依据是该地区角色最近一次剧情登场的日期）；最后才按历史间隔加权——标准轮换看「距上次进店天数 ÷ 个人轮换周期」，中坚寻访看 120–240 天轮换与「久未回归」。标准池会排除已转入中坚池的干员（`kernelMoved`）。**限定与复刻池不预测限定 6★**：往期限定干员不会进入后续卡池，只能在对应限定寻访中通过兑换（井）获得，所以这两个分支会把 `limited=1` 的干员全部排除，只给同池的陪跑 6★（按标准轮换间隔排序），并在 `prediction_basis` 与 `caveats` 里写明这条兑换规则。春节/新年限定**不预测**：hint 命中「春节 / 新年」时直接返回空候选，不拉取任何网络数据（省时省 token）。所有结果都是概率性推断，**不是官方排期**。
+**新角色 / 异格（默认）**：数据来自 `data/story-cast.json`——用 `tools/build-story-cast.mjs` 扫描 2024-01-01 以来的 577 段主线/活动剧情，按台词 `[name="…"]` 统计每个说话者的出场段数、主线/活动分布、最近出场日期；再用 `tools/build-story-aliases.mjs` 查 PRTS 页面，把真实姓名/化名（`{{干员页面名|…}}`）归并回已实装干员，剩下的就是「剧情里反复出现但没进过卡池」的人物。打分：出场段数（上限 +2.5）、主线权重（+0.7/+0.5）、近期活跃（240 天内 +1.2）、首领级敌人模板（+0.3）、**hint 地区与该人物剧情地区吻合（+2.1）**；hint 直接点名的未实装人物再加 +2.6。异格候选来自「干员剧情一览」：出场 ≥5 次且 **≥730 天没有新剧情**，1095 天以上加权更重；已经异格的（如 `予愿安洁莉娜`）会被排除并在 `caveats` 里说明。地区归属用同场出场干员的阵营投票（`阿戈尔(64)` 这类计数），所以跨地区剧情的角色可能同时带多个地区标签。**往期限定干员不会作为新角色候选**：它们只能在对应限定寻访中兑换（井）获得。
+
+**卡池排期（standard / limited / rerun / kernel）**：解析 hint 里的地区 / 季节（庆典、夏季、联动）/ 卡池类型 / 皮肤信号；按历史间隔加权——标准轮换看「距上次进店天数 ÷ 个人轮换周期」，中坚寻访看 120–240 天轮换与「久未回归」，标准池会排除已转入中坚池的干员（`kernelMoved`）。**限定与复刻池不预测限定 6★**：往期限定干员不会进入后续卡池，只能在对应限定寻访中通过兑换（井）获得，所以这两个分支会把 `limited=1` 的干员全部排除，只给同池的陪跑 6★（按标准轮换间隔排序），并在 `prediction_basis` 与 `caveats` 里写明这条兑换规则。春节/新年限定**不预测**：hint 命中「春节 / 新年」时直接返回空候选，不拉取任何网络数据（省时省 token）。所有结果都是概率性推断，**不是官方排期**。
 
 ## 免责声明与权限
 
@@ -153,7 +162,8 @@ dsh plugin --profile desktop add C:\path\to\dsh-ark-wiki
 7. **干员出场**：抓 PRTS 的 `干员剧情一览/六星干员`…`/一二星干员` 五个页面的 wikitable（列：干员 / 主线剧情 / 活动剧情 / 干员密录，单元格是 `[[页面|标题]]` 列表），得到「干员 → 登场剧情」全表；时间排序用 SMW `action=ask` 查 `[[活动开始时间::+]]`（约 317 条，`printouts['活动开始时间'][0].timestamp` 是秒级时间戳）给每个活动/章节补开放日期，没有日期的旧主线章节按 `Template:剧情导航` 的章节顺序插值估算（`date: null`，渲染时提示「顺序按剧情进度估算」）。索引缓存 10 分钟。
 8. **泰拉大典（世界观）**：`action=query&list=allpages&apnamespace=3000` 列出命名空间「泰拉大典」的 143 个页面作为标题索引，另加主命名空间的 `泰拉年表`、`泰拉词库`、`泰拉文字`。标题命中直接取页面解析；列表页（`泰拉大典:角色/其他`、`地理/其他`、`组织/其他`、`生物`、`百科/*`）的值是 `{{角色考据|姓名=…|…}}`/`{{地理考据|名称|…}}`/`{{百科词条|词条名|情报=…}}` 块（位置参数用模板解析器的 `positional`），所以先精确/前缀匹配块名，再退到 `list=search&srwhat=text&srnamespace=3000` 全文检索；`百科/*` 目录页命中时整页全文当作词条解释。`泰拉词库` 解析成中/英/日译名对照行。
 9. **卡池历史（预测）**：解析 PRTS「卡池一览」的静态 wikitable，共 6 页——`常驻标准寻访/{year}`、`常驻标准寻访/{year-1}`、`限时寻访`、`常驻中坚寻访/{year}`、`常驻中坚寻访/{year-1}`、`常驻中坚寻访/{year-2}`。标准页列是「序号 / 寻访页面 / 开启时间 / 6★ / 5★」，限时页是「寻访页面 / 开启时间 / 6★ / 5★」且单元格可能嵌套表格；6★/5★ 单元格里的 `{{干员头像|名字|limited=1}}` 决定「限定」只标在该干员身上（不会被整行污染）。五页并行拉取、合并后缓存 30 分钟；解析器支持同一行 `| a || b || c` 与逐行 `|` 两种写法，标准页只有 `[[文件:…|link=寻访模拟/干员轮换卡池N]]` 时用 `link=` 兜底取标题。
-10. **剧情信号（预测）**：复用第 7 条的「干员剧情一览」索引，统计每位干员在主线 / 活动 / 密录中的出场次数与最近一次剧情登场日期（用第 7 条的 SMW 日期与主线插值）；再按干员的 `nation/organization/team` 归并到地区，得到「每个地区最近一次有新剧情」的日期。地区距今超过 270 天（9 个月）即进入 `staleRegions`，预测时给该地区角色加分。整份信号缓存 15 分钟。
+10. **剧情信号（卡池排期用）**：复用第 7 条的「干员剧情一览」索引，统计每位干员在主线 / 活动 / 密录中的出场次数与最近一次剧情登场日期（用第 7 条的 SMW 日期与主线插值）；再按干员的 `nation/organization/team` 归并到地区，得到「每个地区最近一次有新剧情」的日期。地区距今超过 270 天（9 个月）即进入 `staleRegions`，排期模式预测时给该地区角色加分。整份信号缓存 15 分钟。
+11. **剧情卡司（新角色预测用）**：`tools/build-story-cast.mjs` 扫描 `Template:剧情导航` 里 2024-01-01 之后的 577 段主线/活动剧情，取 `/BEG`、`/END` 子页的演出脚本，按 `[name="…"]` 统计每个说话者的出场段数、主线/活动分布、最近出场日期与同场干员的阵营投票（得到 `阿戈尔(64)` 这类地区计数），产物 `data/story-cast.json`（约 217 KB，641 名说话者，只保留 ≥2 段）。`tools/build-story-aliases.mjs` 再对 519 名非干员说话者查 PRTS 页面：命中 `{{干员页面名|…}}` 的归并回已实装干员（如 恩雅→初雪、维娜→维娜·维多利亚），命中 `{{敌人信息…}}` 的标为 `enemy`，其余分 `story` / `unknown`（实测 unknown 464、story 6、enemy 36、operator 13）。这份数据随包发布，运行时直接读文件，不联网（`npm run data:cast` 可重新生成，需联网）。
 
 `lib/prts.js` 负责 HTTP 细节：默认 8 秒超时（干员页/剧情索引放宽到 12 秒）、网络/5xx 重试 1 次、`AbortSignal` 透传（宿主取消会真正中断请求）、API 错误包装成 `PrtsError`。工具整体 `timeoutMs: 30000`：首次调用要先拉干员列表（约 1 秒，PRTS 偶尔到 10 秒）+ 详情页，后续命中缓存。
 
@@ -171,10 +181,15 @@ dsh-ark-wiki/
 │   ├── prts.js          # PRTS HTTP 层：apiGet / cargoQuery / searchTitles / pageContent / 模板解析
 │   ├── sources.js       # 六类词条解析（含剧情/密录/档案/干员出场/泰拉大典）、匹配评分、缓存、resolveLookup 调度
 │   ├── regions.js       # 地区别名与「干员 ↔ 地区」匹配（预测用）
-│   ├── story-signals.js # 剧情出场次数 / 地区最近新剧情日期 / staleRegions（预测用）
+│   ├── story-signals.js # 剧情出场次数 / 地区最近新剧情日期 / staleRegions（排期预测用）
+│   ├── debut.js         # 剧情卡司库读取、新角色/异格候选打分与置信度（新角色预测用）
 │   └── banners.js       # 卡池一览解析、索引构建、hint 解析、打分与 ark_banner_predict 执行
+├── data/
+│   └── story-cast.json  # 剧情卡司快照（脚本生成，随包发布）
 ├── tools/
-│   └── harness.mjs      # 本地契约 + 数据端到端测试（node tools/harness.mjs live）
+│   ├── harness.mjs      # 本地契约 + 数据端到端测试（node tools/harness.mjs live）
+│   ├── build-story-cast.mjs    # 扫描剧情正文统计说话者 → data/story-cast.json
+│   └── build-story-aliases.mjs # 把化名/真名归并回已实装干员，标注敌人/剧情角色
 ├── README.md
 ├── LICENSE              # 代码 MIT；数据版权归属见文件末尾
 └── RELEASING.md         # 发布清单（npm + GitHub topic + 收录站提交）
@@ -186,7 +201,8 @@ dsh-ark-wiki/
 npm install                      # 只为跑测试装 @deepseek-ai/dsh-tools（devDependency，不进包）
 npm test                         # = node tools/harness.mjs offline，不联网
 node tools/harness.mjs offline   # 不联网：schema 编译、参数校验、apply(ctx) 生命周期、effect 清理
-node tools/harness.mjs live      # 联网：24 个 lookup 真实查询 + 5 个卡池预测用例 + 期望断言（技能/天赋/档案/密录/剧情/干员出场/泰拉大典/卡池/剧情信号），输出 allValid
+node tools/harness.mjs live      # 联网：24 个 lookup 真实查询 + 8 个卡池预测用例（5 排期 + 3 新角色/异格）+ 期望断言（技能/天赋/档案/密录/剧情/干员出场/泰拉大典/卡池/剧情信号），输出 allValid
+npm run data:cast                # 联网重建 data/story-cast.json（剧情卡司快照，约 4–6 分钟，577 段）
 $env:HARNESS_SUMMARY='1'; node tools/harness.mjs live              # 只打印「allValid + 每例耗时/状态/失败标记」
 $env:HARNESS_REPORT='tools/report.json'; node tools/harness.mjs live  # 额外落盘完整 JSON（绕开 PowerShell 5.1 重定向写 UTF-16 的坑）
 ```
@@ -207,7 +223,10 @@ CI（`.github/workflows/ci.yml`）在每次 push / PR 时跑 `npm ci` + `npm tes
 - 剧情正文只取页面内嵌的 `文本数据` 演出脚本，台词截断到 60 条、角色到 20 个；`演出补充`/分支选项不解析，纯音频/图片指令按旁白丢弃（无文本时直接跳过）。关卡与剧情的关联用「`关卡代号 + 关名 + 空格` 前缀匹配导航标题」猜出来的，个别关卡若命名不一致会漏掉 `story` 字段。
 - 干员出场表依赖 `干员剧情一览/*` 的 wikitable 结构（职业二级标题 + 4 列），PRTS 改版会让整类查询失败；表格里只有剧情标题，没有集数/排序号，因此日期来自 SMW `活动开始时间`。旧主线章节（黑暗时代、异卵同生、二次呼吸、急性衰竭、靶向药物、苦难摇篮、怒号光明）在 PRTS 上没有开放时间，这部分 `date` 为 null、顺序按剧情导航估算，渲染时会明确提示；同一活动内的条目按导航顺序而不是真实游玩顺序排列。
 - 泰拉大典只有 143 个页面，角色专页仅覆盖约 100 名干员，其余角色走 `泰拉大典:角色/其他` 的 `{{角色考据}}` 汇总块；不在这些页面里的名词查不到（返回 `not_found`，不编造）。世界观搜索是「标题优先 + 全文检索兜底」的启发式，`百科/*` 目录页命中时返回整页词条摘录而非单条定义。信息框解析只取页面第一张 wikitable 的 `!键`→`|值` 配对，且对组织页/附表页禁用（这两类的表格常是布局表或编辑格式示例）。
-- 卡池预测是**统计启发式 + 剧情信号，不是官方排期**，也不存在可靠的内幕数据源：优先看剧情——「剧情中反复出现」按出场次数加分（2 次起、上限 +2），「所属地区超过 9 个月没有新剧情」加分（上限 +1.5）；再按历史间隔估（标准轮换按个人周期、中坚按 120–240 天轮换），全部权重是社区经验拟合，无法保证命中；`confidence` 最高只到 `medium`（多信号共振才可能 `high`），线索不足时统一降为 `low` 并在 `prediction_basis` 里明说。
+- 新角色 / 异格预测是**剧情启发式，不是内幕排期**：唯一依据是 2024 年以来的剧情台词统计（577 段）与干员实装状态——「剧情里出场多」不等于「会进卡池」（大量重要 NPC 至今未实装），「很久没有新剧情」也不等于「一定异格」。`confidence` 只表示信号是否共振，`high` 也不保证命中；`prediction_basis` 里会给出数据生成日期，之后的新剧情不会被计入。
+- 台词说话者可能写成本名/化名（恩雅、维娜…），已用 `{{干员页面名|…}}` 归并回已实装干员；但 PRTS 上没有页面的名字（实测 464 个 `unknown`）无法判定是否已实装，可能把已实装角色当成新角色推荐，点名场景会在 `caveats` 里额外提示。
+- 地区归属是代理指标：用同场出场干员的 `nation/organization/team` 投票推断说话者归属，跨地区剧情的角色会同时挂多个地区（如塔露拉同时计入罗德岛与维多利亚），所以「回阿戈尔/伊比利亚」这类地区线索只能做粗略排序。
+- 卡池排期（standard / limited / rerun / kernel）仍是**统计启发式**：标准轮换按「距上次进店天数 ÷ 个人周期」、中坚按 120–240 天估算，权重是社区经验拟合，无法保证命中；线索不足时统一降为 `low` 并在 `prediction_basis` 里明说。
 - **限定池只给陪跑 6★**：往期限定干员不会进入后续卡池、只能通过限定寻访兑换（井）获得，因此 `limited` / `rerun` 分支会把 `limited=1` 的干员全部排除，只推断同池的非限定 6★，并在 `prediction_basis` / `caveats` 写明这条规则；新限定 6★ 在官方公布前无法预测。
 - 剧情信号的口径限制：只统计「干员剧情一览」收录的剧情页（主线/活动/密录），密录不计入「最近新剧情」；地区是否「9 个月无新剧情」以该地区角色的最近一次登场为代理指标，角色跨地区出场会高估地区新鲜度。早期主线章节的日期是估算值，只用于粗判。PRTS 若改版该表，剧情信号会整体降级为空，预测退回纯排期启发式（`caveats` 会提示）。
 - 春节/新年限定**不预测**：`hint` 命中「春节 / 新年 / 过年」时直接返回空候选与说明，不拉取任何网络数据；这是有意为之（该档期规律弱、证据少），不是数据缺失。
@@ -223,7 +242,7 @@ CI（`.github/workflows/ci.yml`）在每次 push / PR 时跑 `npm ci` + `npm tes
 
 ## 发布
 
-- GitHub：仓库已公开，`dsh-plugin` topic 已加，tag `v0.6.1` 已推送（`v0.6.0` 为上一版）。
+- GitHub：仓库已公开，`dsh-plugin` topic 已加，tag `v0.7.0` 已推送（`v0.6.1` 为上一版）。
 - npm：**未发布**。npm 2026 年起要求发布者使用安全密钥 2FA，而新账号已无法登记 TOTP（`npm profile enable-2fa` 返回 E404）；在满足该条件前只走 GitHub 源码安装。
 - dsh-plugin.org：收录申请已提交（[dshplugin/dsh-plugin-hub#324](https://github.com/dshplugin/dsh-plugin-hub/issues/324)），等待人工核实时状态为 `unconfirmed`。
 

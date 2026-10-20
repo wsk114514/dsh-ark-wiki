@@ -1,7 +1,7 @@
 {
   "name": "dsh-ark-wiki",
-  "version": "0.6.1",
-  "description": "Arknights (明日方舟) tools for DSH: PRTS Wiki lookup (operators, skills, talents, archives, items, stages, story, worldbook) plus a story-signal probabilistic banner prediction tool.",
+  "version": "0.7.0",
+  "description": "Arknights (明日方舟) tools for DSH: PRTS Wiki lookup (operators, skills, talents, archives, items, stages, story, worldbook) plus a story-cast based predictor for unreleased characters, alters and banner schedules.",
   "license": "MIT",
   "author": "dsh-ark-wiki contributors",
   "type": "module",
@@ -9,6 +9,7 @@
   "scripts": {
     "test": "node tools/harness.mjs offline",
     "test:live": "node tools/harness.mjs live",
+    "data:cast": "node tools/build-story-cast.mjs && node tools/build-story-aliases.mjs",
     "pack:check": "npm pack --dry-run"
   },
   "exports": {
@@ -18,6 +19,7 @@
   },
   "files": [
     "lib",
+    "data",
     "cordis.patch.yml",
     "README.md",
     "LICENSE"

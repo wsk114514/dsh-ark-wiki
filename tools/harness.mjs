@@ -12,6 +12,7 @@
 import * as T from '@deepseek-ai/dsh-tools'
 import { writeFileSync } from 'node:fs'
 import { arkWikiLookup, arkBannerPredict, name, inject, apply } from '../lib/index.js'
+import { loadStoryCast, predictDebut } from '../lib/debut.js'
 import {
   buildBannerIndex,
   kernelMoved,
@@ -178,13 +179,21 @@ const kernelMovedIndex = buildBannerIndex([
 ])
 
 const regionHint = parseBannerHint('莱塔尼亚活动')
-contractCheck('region hint infers standard', regionHint.bannerType === 'standard' && regionHint.regions.some(item => item.canonical === '莱塔尼亚'))
+contractCheck('region-only hint defaults to debut prediction',
+  regionHint.bannerType === 'debut' && regionHint.regions.some(item => item.canonical === '莱塔尼亚'))
+const explicitStandardHint = parseBannerHint('莱塔尼亚活动', 'standard')
+contractCheck('explicit standard keeps rotation mode', explicitStandardHint.bannerType === 'standard', explicitStandardHint.bannerType)
+const rotationHint = parseBannerHint('常驻轮换')
+contractCheck('rotation hint infers standard', rotationHint.bannerType === 'standard', rotationHint.bannerType)
+const alterHint = parseBannerHint('安洁莉娜会不会异格')
+contractCheck('alter hint infers debut with alter flag',
+  alterHint.bannerType === 'debut' && alterHint.mentionsAlter === true, alterHint)
 const limitedHint = parseBannerHint('夏季限定')
 contractCheck('season hint infers limited', limitedHint.bannerType === 'limited' && limitedHint.season === '夏季')
 const newYearHint = parseBannerHint('春节限定')
 contractCheck('new-year hint is flagged', newYearHint.newYear === true && newYearHint.bannerType === 'limited', newYearHint)
 const vagueHint = parseBannerHint('随便猜猜')
-contractCheck('vague hint is flagged as insufficient', vagueHint.hintUsed === false && vagueHint.bannerType === 'standard')
+contractCheck('vague hint is flagged as insufficient', vagueHint.hintUsed === false && vagueHint.bannerType === 'debut')
 
 const now = new Date('2026-10-19T00:00:00+08:00')
 
@@ -275,6 +284,48 @@ const emptyPrediction = predictBanners({
 })
 contractCheck('no banner data yields no candidates', emptyPrediction.candidates.length === 0, emptyPrediction.candidates)
 contractCheck('no banner data explains itself', emptyPrediction.caveats.includes('没有可用的历史卡池数据'), emptyPrediction.caveats)
+
+// --- debut / alter prediction (offline, from the committed cast database) ---
+const cast = loadStoryCast()
+contractCheck('story cast database is available and classified',
+  cast.missing === false && Object.keys(cast.characters).length > 100 && Object.keys(cast.catalog).length > 100,
+  { missing: cast.missing, chars: Object.keys(cast.characters).length, catalog: Object.keys(cast.catalog).length })
+
+const regionDebut = predictDebut({ regions: ['阿戈尔', '伊比利亚'], entries: FIXTURE_ENTRIES, signals: storyFixture, now })
+contractCheck('debut returns candidates for a region hint', regionDebut.candidates.length > 0, regionDebut.candidates)
+contractCheck('debut candidates expose new/alter kind',
+  regionDebut.candidates.every(item => item.kind === 'new' || item.kind === 'alter'), regionDebut.candidates)
+contractCheck('debut basis cites the cast scan', /扫描 \d+ 段/.test(regionDebut.prediction_basis), regionDebut.prediction_basis)
+contractCheck('debut basis cites the hinted region', /阿戈尔/.test(regionDebut.prediction_basis), regionDebut.prediction_basis)
+contractCheck('debut caveats keep the exchange rule', /兑换/.test(regionDebut.caveats), regionDebut.caveats)
+contractCheck('debut prediction schema valid',
+  T.validateJsonSchemaValue(arkBannerPredict.output.schema, regionDebut).length === 0,
+  T.validateJsonSchemaValue(arkBannerPredict.output.schema, regionDebut))
+
+const namedDebut = predictDebut({ regions: [], entries: FIXTURE_ENTRIES, signals: storyFixture, now, body: '塔露拉会实装吗' })
+contractCheck('named unreleased character ranks first', namedDebut.candidates[0]?.operator === '塔露拉', namedDebut.candidates.map(item => item.operator))
+contractCheck('named hint is stated in the basis', /hint 提到的未实装人物/.test(namedDebut.prediction_basis), namedDebut.prediction_basis)
+
+const alterStory = {
+  byOperator: new Map([
+    ['玛恩纳', { total: 8, main: 2, event: 6, memory: 0, latestTs: Date.parse('2019-01-01T00:00:00+08:00') }]
+  ]),
+  staleRegions: []
+}
+const alterDebut = predictDebut({
+  regions: [],
+  entries: [...FIXTURE_ENTRIES, { name: '安洁莉娜', stars: 6, nation: '叙拉古' }, { name: '予愿安洁莉娜', stars: 6, nation: '叙拉古' }],
+  signals: alterStory,
+  now,
+  body: '安洁莉娜很久没剧情了，会不会异格'
+})
+contractCheck('alter hint weights alter candidates', alterDebut.candidates.some(item => item.kind === 'alter'), alterDebut.candidates)
+contractCheck('stale operator becomes a medium alter candidate',
+  alterDebut.candidates.find(item => item.operator === '玛恩纳')?.confidence === 'medium',
+  alterDebut.candidates.find(item => item.operator === '玛恩纳'))
+contractCheck('already-altered operator is rejected with an explanation', /已经异格实装/.test(alterDebut.caveats), alterDebut.caveats)
+
+contractCheck('debut caveats warn about weak signals', /弱信号/.test(regionDebut.caveats), regionDebut.caveats)
 report.contract = contract
 
 // ---------------------------------------------------------------------------
@@ -435,9 +486,31 @@ const cases = mode === 'offline'
       },
       {
         tool: arkBannerPredict,
-        args: { hint: '随便猜猜' },
+        args: { hint: '随便猜猜', banner_type: 'standard' },
         assert: value => value.candidates.every(item => item.confidence === 'low')
           && value.prediction_basis.includes('线索不足')
+      },
+      {
+        // 默认模式：新角色/异格，不查卡池排期页。
+        tool: arkBannerPredict,
+        args: { hint: '下个版本可能回阿戈尔或伊比利亚' },
+        assert: value => value.candidates.length >= 1
+          && value.candidates.every(item => item.kind === 'new' || item.kind === 'alter')
+          && /扫描 \d+ 段/.test(value.prediction_basis)
+          && /阿戈尔/.test(value.prediction_basis)
+          && /兑换/.test(value.caveats)
+      },
+      {
+        tool: arkBannerPredict,
+        args: { hint: '塔露拉会实装吗' },
+        assert: value => value.candidates.some(item => item.operator === '塔露拉')
+          && value.candidates.every(item => item.kind === 'new' || item.kind === 'alter')
+      },
+      {
+        tool: arkBannerPredict,
+        args: { hint: '安洁莉娜很久没新剧情了，会不会异格' },
+        assert: value => value.candidates.some(item => item.kind === 'alter')
+          && /已经异格实装/.test(value.caveats)
       }
     ]
 
