@@ -218,7 +218,11 @@ const seasonPrediction = predictBanners({
   hint: '夏季限定',
   now
 })
-contractCheck('season prediction only offers limited operators', seasonPrediction.candidates.every(item => item.operator === '年'), seasonPrediction.candidates.map(item => item.operator))
+contractCheck('limited prediction excludes already-released limited operators',
+  seasonPrediction.candidates.every(item => item.operator !== '年'), seasonPrediction.candidates.map(item => item.operator))
+contractCheck('limited prediction offers companion candidates', seasonPrediction.candidates.length > 0, seasonPrediction.candidates.map(item => item.operator))
+contractCheck('limited prediction states the exchange-only rule', /兑换/.test(seasonPrediction.prediction_basis) && /兑换/.test(seasonPrediction.caveats),
+  { basis: seasonPrediction.prediction_basis, caveats: seasonPrediction.caveats })
 contractCheck('season prediction includes interval evidence', /天/.test(seasonPrediction.candidates[0]?.reason ?? ''), seasonPrediction.candidates[0]?.reason)
 
 const newYearPrediction = predictBanners({
@@ -419,12 +423,14 @@ const cases = mode === 'offline'
         args: { hint: '夏季限定池' },
         assert: value => value.candidates.length >= 1
           && value.prediction_basis.includes('限定')
+          && /兑换/.test(value.prediction_basis)
           && value.candidates.every(item => typeof item.operator === 'string' && item.reason.length > 0)
       },
       {
         tool: arkBannerPredict,
         args: { hint: '维多利亚复刻' },
         assert: value => value.candidates.length >= 1
+          && /兑换/.test(value.caveats)
           && value.candidates.every(item => ['high', 'medium', 'low'].includes(item.confidence))
       },
       {
