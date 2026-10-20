@@ -12,7 +12,7 @@
 import * as T from '@deepseek-ai/dsh-tools'
 import { writeFileSync } from 'node:fs'
 import { arkWikiLookup, arkBannerPredict, name, inject, apply } from '../lib/index.js'
-import { loadStoryCast, predictDebut } from '../lib/debut.js'
+import { loadStoryCast, predictDebut, loadOperatorAliases } from '../lib/debut.js'
 import {
   buildBannerIndex,
   kernelMoved,
@@ -326,6 +326,34 @@ contractCheck('stale operator becomes a medium alter candidate',
 contractCheck('already-altered operator is rejected with an explanation', /已经异格实装/.test(alterDebut.caveats), alterDebut.caveats)
 
 contractCheck('debut caveats warn about weak signals', /弱信号/.test(regionDebut.caveats), regionDebut.caveats)
+
+// --- released-operator verification (real names / nicknames) ----------------
+const aliasIndex = loadOperatorAliases()
+contractCheck('operator alias index is available',
+  aliasIndex.missing === false && aliasIndex.aliases['梅捷缇克缇'] === '缇缇',
+  { missing: aliasIndex.missing, sample: aliasIndex.aliases['梅捷缇克缇'], scanned: aliasIndex.scanned })
+
+const releasedDebut = predictDebut({ regions: ['萨尔贡'], entries: FIXTURE_ENTRIES, signals: storyFixture, now })
+contractCheck('released operators are never predicted as new characters by real name',
+  !releasedDebut.candidates.some(item => ['梅捷缇克缇', '阿娜特'].includes(item.operator)),
+  releasedDebut.candidates.map(item => item.operator))
+contractCheck('alias exclusions are explained in the caveats',
+  /实装校验/.test(releasedDebut.caveats), releasedDebut.caveats)
+contractCheck('debut basis cites the operator roster verification',
+  /实装校验/.test(releasedDebut.prediction_basis), releasedDebut.prediction_basis)
+
+const hintAliasDebut = predictDebut({
+  regions: [],
+  entries: [...FIXTURE_ENTRIES, { name: '缇缇', stars: 6, nation: '萨尔贡' }],
+  signals: storyFixture,
+  now,
+  body: '缇缇（梅捷缇克缇）会不会实装'
+})
+contractCheck('hint naming a released operator is explained instead of predicted',
+  /hint 点名的「缇缇」已经是实装干员/.test(hintAliasDebut.caveats), hintAliasDebut.caveats)
+contractCheck('hint real name is listed first among alias exclusions',
+  /实装校验：梅捷缇克缇＝干员「缇缇」/.test(hintAliasDebut.caveats), hintAliasDebut.caveats)
+
 report.contract = contract
 
 // ---------------------------------------------------------------------------
@@ -499,6 +527,13 @@ const cases = mode === 'offline'
           && /扫描 \d+ 段/.test(value.prediction_basis)
           && /阿戈尔/.test(value.prediction_basis)
           && /兑换/.test(value.caveats)
+      },
+      {
+        tool: arkBannerPredict,
+        args: { hint: '萨尔贡下一个版本会出哪些新角色' },
+        assert: value => value.candidates.length >= 1
+          && !value.candidates.some(item => ['梅捷缇克缇', '阿娜特', '缇缇'].includes(item.operator))
+          && /实装校验/.test(value.caveats)
       },
       {
         tool: arkBannerPredict,
