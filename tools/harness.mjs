@@ -1,27 +1,38 @@
 /**
- * Local contract harness: runs the plugin's tool definition outside DSH, using
+ * Local contract harness: runs the plugin's tool definitions outside DSH, using
  * the host's own dsh-tools build (so the schema compiler and validators are the
  * exact ones DSH uses at runtime).
  *
  * Note: defineTool() already compiles both schemas at definition time, so
  * `tool.parameters` and `tool.output.schema` are raw JSON Schema here.
  *
- * Usage: node tools/harness.mjs [stub|live]
+ * Usage: node tools/harness.mjs [offline|live]
  */
 
 import * as T from '@deepseek-ai/dsh-tools'
 import { writeFileSync } from 'node:fs'
-import { arkWikiLookup, name, inject, apply } from '../lib/index.js'
+import { arkWikiLookup, arkBannerPredict, name, inject, apply } from '../lib/index.js'
+import {
+  buildBannerIndex,
+  kernelMoved,
+  parseBannerDate,
+  parseBannerHint,
+  parseBannerTables,
+  predictBanners
+} from '../lib/banners.js'
 
 const mode = process.argv[2] ?? 'live'
 
-const report = { mode, exports: { name, inject }, checks: [] }
+const report = { mode, exports: { name, inject }, checks: [], contract: [], results: [] }
 const check = (label, ok, detail) => report.checks.push({ label, ok, ...(detail === undefined ? {} : { detail }) })
 
 check('tool name is ark_wiki_lookup', arkWikiLookup.name === 'ark_wiki_lookup', arkWikiLookup.name)
+check('tool name is ark_banner_predict', arkBannerPredict.name === 'ark_banner_predict', arkBannerPredict.name)
 check('inject contains tools', Array.isArray(inject) && inject.includes('tools'), inject)
-check('parameters is compiled JSON Schema', arkWikiLookup.parameters?.type === 'object')
-check('output.schema is compiled JSON Schema', arkWikiLookup.output.schema?.type === 'object')
+check('lookup parameters is compiled JSON Schema', arkWikiLookup.parameters?.type === 'object')
+check('lookup output.schema is compiled JSON Schema', arkWikiLookup.output.schema?.type === 'object')
+check('banner parameters is compiled JSON Schema', arkBannerPredict.parameters?.type === 'object')
+check('banner output.schema is compiled JSON Schema', arkBannerPredict.output.schema?.type === 'object')
 
 // --- Lifecycle: the Cordis loader calls apply(ctx); it must register through
 // ctx.tools inside ctx.effect so the registration is disposable.
@@ -48,41 +59,194 @@ const fakeCtx = {
 
 check('apply is a function', typeof apply === 'function')
 if (typeof apply === 'function') apply(fakeCtx)
-check('apply registers exactly one tool', registrations.length === 1, registrations.map(definition => definition.name))
-check('registered tool is ark_wiki_lookup', registrations[0]?.name === 'ark_wiki_lookup')
+check('apply registers exactly two tools', registrations.length === 2, registrations.map(definition => definition.name))
+const registeredNames = registrations.map(definition => definition.name).sort()
+check('registered tools are ark_wiki_lookup + ark_banner_predict',
+  registeredNames.join(',') === 'ark_banner_predict,ark_wiki_lookup', registeredNames)
 check('apply registered inside one effect', effects.length === 1, effects.map(effect => effect.label))
 for (const effect of effects) effect.dispose()
-check('disposing the effect unregisters the tool', disposeLog.includes('tools.unregister'), disposeLog)
+check('disposing the effect unregisters both tools', disposeLog.filter(item => item === 'tools.unregister').length === 2, disposeLog)
 
-report.parameterJsonSchema = arkWikiLookup.parameters
-report.outputJsonSchema = arkWikiLookup.output.schema
+report.lookupParameterJsonSchema = arkWikiLookup.parameters
+report.lookupOutputJsonSchema = arkWikiLookup.output.schema
+report.bannerParameterJsonSchema = arkBannerPredict.parameters
+report.bannerOutputJsonSchema = arkBannerPredict.output.schema
 
 // defineTool() validates inside execute(), so argument rejection is observed there.
-const tryExecute = async (args) => {
+const tryExecute = async (tool, args) => {
   try {
-    return { ok: true, value: await arkWikiLookup.execute(args, {}) }
+    return { ok: true, value: await tool.execute(args, {}) }
   } catch (error) {
     return { ok: false, error: error?.constructor?.name, message: String(error?.message ?? error), violations: error?.violations }
   }
 }
 
 const invalid = [
-  [{}, 'missing required query'],
-  [{ query: '阿米娅', category: 'hero' }, 'category outside enum'],
-  [{ query: 42 }, 'query wrong type']
+  [arkWikiLookup, {}, 'lookup: missing required query'],
+  [arkWikiLookup, { query: '阿米娅', category: 'hero' }, 'lookup: category outside enum'],
+  [arkWikiLookup, { query: 42 }, 'lookup: query wrong type'],
+  [arkBannerPredict, {}, 'banner: missing required hint'],
+  [arkBannerPredict, { hint: '春节', banner_type: 'seasonal' }, 'banner: banner_type outside enum'],
+  [arkBannerPredict, { hint: '春节', region: 'eu' }, 'banner: region outside enum']
 ]
 const argRows = []
-for (const [args, label] of invalid) {
-  const r = await tryExecute(args)
-  argRows.push({ label, args, rejected: !r.ok, error: r.error, violations: r.violations })
+for (const [tool, args, label] of invalid) {
+  const r = await tryExecute(tool, args)
+  argRows.push({ tool: tool.name, label, args, rejected: !r.ok, error: r.error, violations: r.violations })
   check(`rejects args: ${label}`, !r.ok, { error: r.error, violations: r.violations })
 }
 report.argValidation = argRows
+
+// ---------------------------------------------------------------------------
+// Offline contract checks: pure parsing + scoring, no network.
+// ---------------------------------------------------------------------------
+
+const FIXTURE_PAGE = `{| class="wikitable"
+|-
+! 序号 !! 寻访页面 !! 开启时间 !! 6★ !! 5★
+|-
+| 1 || [[文件:干员轮换卡池1.png|400px|link=寻访模拟/干员轮换卡池1]] || 2025-01-01 04:00~<br/>2025-01-15 03:59 || {{干员头像|斥罪|shop=1}} || {{干员头像|左乐}}
+|}
+== 非标准寻访 ==
+{| class="wikitable"
+|-
+! 寻访页面 !! 开启时间 !! 6★ !! 5★
+|-
+| [[文件:x.png]]<br/>[[岁岁平安]] || 2025-01-16 16:00~<br/>2025-01-30 03:59 || {{干员头像|年|limited=1}} {{干员头像|令}} || {{干员头像|夕}}
+|}`
+
+const FIXTURE_ENTRIES = [
+  { name: '斥罪', stars: 6, nation: '莱塔尼亚', organization: '莱塔尼亚', releasedAt: '2023-03-07' },
+  { name: '年', stars: 6, nation: '炎-龙门', organization: '龙门', releasedAt: '2020-01-16' },
+  { name: '刻俄柏', stars: 6, nation: '哥伦比亚', organization: '罗德岛', releasedAt: '2020-05-01' },
+  { name: '玛恩纳', stars: 6, nation: '卡西米尔', organization: '卡西米尔', releasedAt: '2022-09-08' },
+  { name: '左乐', stars: 5, nation: '炎-龙门', organization: '龙门', releasedAt: '2024-01-01' },
+  { name: '令', stars: 6, nation: '炎-龙门', organization: '岁', releasedAt: '2022-01-25' }
+]
+
+const syntheticStandard = (title, operator, date) => ({
+  title,
+  label: null,
+  kind: 'standard',
+  limited: false,
+  rerun: false,
+  season: null,
+  section: null,
+  start: new Date(date),
+  end: null,
+  six: [operator],
+  five: [],
+  shop: []
+})
+
+const contract = []
+const contractCheck = (label, ok, detail) => {
+  contract.push({ label, ok, ...(detail === undefined ? {} : { detail }) })
+  check(`contract: ${label}`, ok, detail)
+}
+
+const fixtureBanners = parseBannerTables(FIXTURE_PAGE)
+contractCheck('parses two banner rows', fixtureBanners.length === 2, fixtureBanners.map(banner => banner.title))
+contractCheck('classifies rotating row as standard', fixtureBanners[0]?.kind === 'standard', fixtureBanners[0]?.kind)
+contractCheck('classifies limited row as limited', fixtureBanners[1]?.kind === 'limited', fixtureBanners[1]?.kind)
+contractCheck('keeps limited avatar flag', fixtureBanners[1]?.limited === true && fixtureBanners[1]?.six.includes('年'), fixtureBanners[1]?.six)
+contractCheck('parses CN schedule start', fixtureBanners[1]?.start?.toISOString() === '2025-01-16T08:00:00.000Z', fixtureBanners[1]?.start?.toISOString())
+contractCheck('parses bare date', parseBannerDate('2025-01-01')?.toISOString() === '2024-12-31T16:00:00.000Z', parseBannerDate('2025-01-01')?.toISOString())
+
+const syntheticKernel = (title, operator, date) => ({
+  ...syntheticStandard(title, operator, date),
+  kind: 'kernel'
+})
+
+const fixtureIndex = buildBannerIndex([
+  ...fixtureBanners,
+  syntheticStandard('干员轮换卡池2', '刻俄柏', '2025-06-01T04:00:00+08:00'),
+  syntheticStandard('干员轮换卡池3', '玛恩纳', '2025-08-01T04:00:00+08:00')
+])
+contractCheck('index marks limited operator', fixtureIndex.limitedOperators.has('年') && !fixtureIndex.limitedOperators.has('斥罪'))
+contractCheck('index marks standard operator', fixtureIndex.standardPool.has('斥罪'))
+contractCheck('limited flag stays per avatar',
+  fixtureBanners[1]?.sixLimited?.length === 1 && fixtureBanners[1]?.sixLimited?.[0] === '年' &&
+  fixtureBanners[1]?.six?.includes('令'), { six: fixtureBanners[1]?.six, sixLimited: fixtureBanners[1]?.sixLimited })
+contractCheck('co-listed six star is not marked limited',
+  fixtureBanners[1]?.limited === true && !fixtureIndex.limitedOperators.has('令'), [...fixtureIndex.limitedOperators])
+
+const kernelMovedIndex = buildBannerIndex([
+  ...fixtureBanners,
+  syntheticStandard('干员轮换卡池2', '斥罪', '2025-06-01T04:00:00+08:00'),
+  syntheticKernel('中坚寻访1', '斥罪', '2025-09-01T04:00:00+08:00')
+])
+
+const regionHint = parseBannerHint('莱塔尼亚活动')
+contractCheck('region hint infers standard', regionHint.bannerType === 'standard' && regionHint.regions.some(item => item.canonical === '莱塔尼亚'))
+const limitedHint = parseBannerHint('春节限定')
+contractCheck('season hint infers limited', limitedHint.bannerType === 'limited' && limitedHint.season === '春节')
+const vagueHint = parseBannerHint('随便猜猜')
+contractCheck('vague hint is flagged as insufficient', vagueHint.hintUsed === false && vagueHint.bannerType === 'standard')
+
+const now = new Date('2026-10-19T00:00:00+08:00')
+
+const standardPredictionWithKernel = predictBanners({
+  entries: FIXTURE_ENTRIES,
+  index: kernelMovedIndex,
+  hint: '莱塔尼亚活动',
+  now
+})
+contractCheck('kernelMoved marks operator that moved to the kernel pool', kernelMoved(kernelMovedIndex, '斥罪') === true)
+contractCheck('kernel banner moves operator out of standard rotation',
+  kernelMovedIndex.kernelPool.has('斥罪') &&
+  !standardPredictionWithKernel.candidates.some(item => item.operator === '斥罪'),
+  standardPredictionWithKernel.candidates.map(item => item.operator))
+const regionPrediction = predictBanners({
+  entries: FIXTURE_ENTRIES,
+  index: fixtureIndex,
+  hint: '莱塔尼亚活动',
+  now
+})
+contractCheck('region prediction returns 3 candidates', regionPrediction.candidates.length === 3, regionPrediction.candidates.map(item => item.operator))
+contractCheck('region prediction ranks 斥罪 first', regionPrediction.candidates[0]?.operator === '斥罪', regionPrediction.candidates[0])
+contractCheck('region-only hint caps confidence at medium', regionPrediction.candidates[0]?.confidence === 'medium', regionPrediction.candidates[0]?.confidence)
+contractCheck('region prediction basis mentions 卡池一览', regionPrediction.prediction_basis.includes('卡池一览'), regionPrediction.prediction_basis)
+contractCheck('region prediction schema valid', T.validateJsonSchemaValue(arkBannerPredict.output.schema, regionPrediction).length === 0,
+  T.validateJsonSchemaValue(arkBannerPredict.output.schema, regionPrediction))
+
+const seasonPrediction = predictBanners({
+  entries: FIXTURE_ENTRIES,
+  index: fixtureIndex,
+  hint: '春节限定',
+  now
+})
+contractCheck('season prediction only offers limited operators', seasonPrediction.candidates.every(item => item.operator === '年'), seasonPrediction.candidates.map(item => item.operator))
+contractCheck('season prediction includes interval evidence', /天/.test(seasonPrediction.candidates[0]?.reason ?? ''), seasonPrediction.candidates[0]?.reason)
+
+const vaguePrediction = predictBanners({
+  entries: FIXTURE_ENTRIES,
+  index: fixtureIndex,
+  hint: '随便猜猜',
+  now
+})
+contractCheck('vague hint degrades confidence', vaguePrediction.candidates.every(item => item.confidence === 'low'), vaguePrediction.candidates)
+contractCheck('vague hint says insufficient clues', vaguePrediction.prediction_basis.includes('线索不足'), vaguePrediction.prediction_basis)
+
+const emptyPrediction = predictBanners({
+  entries: FIXTURE_ENTRIES,
+  index: buildBannerIndex([]),
+  hint: '莱塔尼亚活动',
+  now
+})
+contractCheck('no banner data yields no candidates', emptyPrediction.candidates.length === 0, emptyPrediction.candidates)
+contractCheck('no banner data explains itself', emptyPrediction.caveats.includes('没有可用的历史卡池数据'), emptyPrediction.caveats)
+report.contract = contract
+
+// ---------------------------------------------------------------------------
+// Live cases (network). Each case names the tool it exercises.
+// ---------------------------------------------------------------------------
 
 const cases = mode === 'offline'
   ? []
   : [
       {
+        tool: arkWikiLookup,
         args: { query: '阿米娅' },
         expect: ['operator', 'ok'],
         assert: value => value.entry?.skills?.length === 3 && value.entry.skills[2].name === '奇美拉'
@@ -94,6 +258,7 @@ const cases = mode === 'offline'
           && !value.entry.archives.some(archive => archive.title.includes('？'))
       },
       {
+        tool: arkWikiLookup,
         args: { query: '12F' },
         expect: ['operator', 'ok'],
         assert: value => value.entry?.records?.length === 1
@@ -101,6 +266,7 @@ const cases = mode === 'offline'
           && value.entry.archives?.some(archive => archive.title === '档案资料一')
       },
       {
+        tool: arkWikiLookup,
         args: { query: '银灰' },
         expect: ['operator', 'ok'],
         assert: value => value.entry?.skills?.length === 3
@@ -109,12 +275,14 @@ const cases = mode === 'offline'
           && value.entry.talents[0].levels.some(level => level.potentialEffect)
       },
       {
+        tool: arkWikiLookup,
         args: { query: '玫兰莎' },
         expect: ['operator', 'ok'],
         assert: value => value.entry?.skills?.length === 1 && value.entry.skills[0].levels.length === 7
           && value.entry.talents?.[0]?.levels.length === 2
       },
       {
+        tool: arkWikiLookup,
         args: { query: '0-1 坍塌 行动前' },
         expect: ['story', 'ok'],
         assert: value => value.entry?.kind === '主线剧情'
@@ -125,24 +293,28 @@ const cases = mode === 'offline'
           && value.entry.lines.every(line => !line.text.includes('{@'))
       },
       {
+        tool: arkWikiLookup,
         args: { query: '12F 干员密录' },
         expect: ['story', 'ok'],
         assert: value => value.entry?.kind === '干员密录' && value.entry.lineCount > 60
       },
       {
+        tool: arkWikiLookup,
         args: { query: '1-7' },
         expect: ['stage', 'ok'],
         assert: value => value.entry?.story?.before?.page === '1-7 暴君/BEG'
           && value.entry.story?.after?.page === '1-7 暴君/END'
       },
       {
+        tool: arkWikiLookup,
         args: { query: '黑暗时代' },
         expect: ['unknown', 'not_found'],
         assert: value => value.candidates?.some(candidate => candidate.category === 'story')
       },
-      { args: { query: 'Amiya' }, expect: ['operator', 'ok'] },
-      { args: { query: 'アーミヤ' }, expect: ['operator', 'ok'] },
+      { tool: arkWikiLookup, args: { query: 'Amiya' }, expect: ['operator', 'ok'] },
+      { tool: arkWikiLookup, args: { query: 'アーミヤ' }, expect: ['operator', 'ok'] },
       {
+        tool: arkWikiLookup,
         args: { query: '克莱门莎 出场' },
         expect: ['story', 'ok'],
         assert: value => value.entry?.kind === '干员出场'
@@ -153,6 +325,7 @@ const cases = mode === 'offline'
           && value.entry.appearances.every(item => !('navIndex' in item))
       },
       {
+        tool: arkWikiLookup,
         args: { query: '阿米娅 出场' },
         expect: ['story', 'ok'],
         assert: value => value.entry?.kind === '干员出场'
@@ -160,6 +333,7 @@ const cases = mode === 'offline'
           && value.entry.counts.memory > 0
       },
       {
+        tool: arkWikiLookup,
         args: { query: '维多利亚', category: 'world' },
         expect: ['world', 'ok'],
         assert: value => value.entry?.section === '地理'
@@ -167,42 +341,73 @@ const cases = mode === 'offline'
           && (value.entry.related ?? []).some(link => link.name === '伦蒂尼姆')
       },
       {
+        tool: arkWikiLookup,
         args: { query: '罗德岛', category: 'world' },
         expect: ['world', 'ok'],
         assert: value => value.entry?.section === '组织'
           && String(value.entry.details?.['日文名'] ?? '').includes('ロドス')
       },
       {
+        tool: arkWikiLookup,
         args: { query: '源石', category: 'world' },
         expect: ['world', 'ok'],
         assert: value => (value.entry?.terms ?? []).some(term => term.zh === '源石' && term.en === 'Originiums')
       },
-      { args: { query: '泰拉年表' }, expect: ['world', 'ok'] },
-      { args: { query: '不存在的世界观词条xyz' }, expect: ['unknown', 'not_found'] },
-      { args: { query: '阿米娅的信物' }, expect: ['item', 'ok'] },
-      { args: { query: '至纯源石' }, expect: ['item', 'ok'] },
-      { args: { query: '固源岩', category: 'item' }, expect: ['item', 'ok'] },
-      { args: { query: 'S4-7' }, expect: ['stage', 'ok'] },
-      { args: { query: '龙门市区' }, expect: ['stage', 'ok'] },
-      { args: { query: 'CE-5' }, expect: ['stage', 'ok'] },
-      { args: { query: '不存在的词条xyz' }, expect: ['unknown', 'not_found'] }
+      { tool: arkWikiLookup, args: { query: '泰拉年表' }, expect: ['world', 'ok'] },
+      { tool: arkWikiLookup, args: { query: '不存在的世界观词条xyz' }, expect: ['unknown', 'not_found'] },
+      { tool: arkWikiLookup, args: { query: '阿米娅的信物' }, expect: ['item', 'ok'] },
+      { tool: arkWikiLookup, args: { query: '至纯源石' }, expect: ['item', 'ok'] },
+      { tool: arkWikiLookup, args: { query: '固源岩', category: 'item' }, expect: ['item', 'ok'] },
+      { tool: arkWikiLookup, args: { query: 'S4-7' }, expect: ['stage', 'ok'] },
+      { tool: arkWikiLookup, args: { query: '龙门市区' }, expect: ['stage', 'ok'] },
+      { tool: arkWikiLookup, args: { query: 'CE-5' }, expect: ['stage', 'ok'] },
+      { tool: arkWikiLookup, args: { query: '不存在的词条xyz' }, expect: ['unknown', 'not_found'] },
+      {
+        tool: arkBannerPredict,
+        args: { hint: '莱塔尼亚活动，下期标准轮换' },
+        assert: value => value.candidates.length >= 3
+          && value.candidates.length <= 5
+          && value.candidates.every(item => ['high', 'medium', 'low'].includes(item.confidence))
+          && value.prediction_basis.length > 0
+          && (value.caveats.includes('概率') || value.caveats.includes('排期'))
+      },
+      {
+        tool: arkBannerPredict,
+        args: { hint: '春节限定池' },
+        assert: value => value.candidates.length >= 1
+          && value.prediction_basis.includes('限定')
+          && value.candidates.every(item => typeof item.operator === 'string' && item.reason.length > 0)
+      },
+      {
+        tool: arkBannerPredict,
+        args: { hint: '随便猜猜' },
+        assert: value => value.candidates.every(item => item.confidence === 'low')
+          && value.prediction_basis.includes('线索不足')
+      }
     ]
+
+const matchesExpectation = (tool, value, expect) => {
+  if (!expect) return true
+  if (tool === arkWikiLookup) return value?.category === expect[0] && value?.status === expect[1]
+  return true
+}
 
 const results = []
 for (const testCase of cases) {
-  const args = testCase.args ?? testCase
+  const tool = testCase.tool ?? arkWikiLookup
+  const args = testCase.args ?? {}
   const started = Date.now()
-  const r = await tryExecute(args)
+  const r = await tryExecute(tool, args)
   const elapsedMs = Date.now() - started
+  const label = args.query ?? args.hint ?? JSON.stringify(args)
   if (!r.ok) {
-    results.push({ args, threw: r.message, elapsedMs, expectationMet: false })
+    results.push({ tool: tool.name, args, label, threw: r.message, elapsedMs, expectationMet: false })
     continue
   }
   const value = r.value
-  const violations = T.validateJsonSchemaValue(arkWikiLookup.output.schema, value)
-  const blocks = arkWikiLookup.output.render(args, value)
-  const expectationMet = !testCase.expect
-    || (value?.category === testCase.expect[0] && value?.status === testCase.expect[1])
+  const violations = T.validateJsonSchemaValue(tool.output.schema, value)
+  const blocks = tool.output.render(args, value)
+  const expectationMet = matchesExpectation(tool, value, testCase.expect)
   let assertMet
   let assertError
   if (testCase.assert) {
@@ -215,7 +420,9 @@ for (const testCase of cases) {
   }
   const entry = value?.entry && typeof value.entry === 'object' ? value.entry : undefined
   results.push({
+    tool: tool.name,
     args,
+    label,
     elapsedMs,
     expected: testCase.expect,
     expectationMet,
@@ -225,6 +432,7 @@ for (const testCase of cases) {
     category: value?.category,
     matchedBy: value?.matchedBy,
     message: value?.message,
+    candidateCount: value?.candidates?.length,
     counts: entry && {
       skills: entry.skills?.length ?? 0,
       skillLevels: entry.skills?.reduce((sum, skill) => sum + skill.levels.length, 0) ?? 0,
@@ -258,6 +466,6 @@ if (process.env.HARNESS_SUMMARY) {
       (row.violatesOutputSchema ?? []).length > 0 ? 'SCHEMA-VIOLATION' : null,
       row.threw ? `THREW: ${row.threw}` : null
     ].filter(Boolean)
-    console.log(`${row.args.query} [${row.args.category ?? 'auto'}] ${row.elapsedMs}ms ${row.status ?? '-'} ${flags.join(' ') || 'ok'}`)
+    console.log(`${row.label} [${row.tool}] ${row.elapsedMs}ms ${row.status ?? '-'} ${flags.join(' ') || 'ok'}`)
   }
 }

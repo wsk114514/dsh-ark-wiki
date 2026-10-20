@@ -1,6 +1,6 @@
 # dsh-ark-wiki
 
-为 DSH 提供一个模型可调用的工具 `ark_wiki_lookup`：查询 PRTS Wiki 的《明日方舟》数据（干员及其技能/天赋/档案/密录、物品、关卡、剧情、干员出场表与「泰拉大典」世界观考据），返回结构化结果，由模型据此作答。
+为 DSH 提供两个模型可调用的工具：`ark_wiki_lookup` 查询 PRTS Wiki 的《明日方舟》数据（干员及其技能/天赋/档案/密录、物品、关卡、剧情、干员出场表与「泰拉大典」世界观考据），返回结构化结果，由模型据此作答；`ark_banner_predict` 按 PRTS「卡池一览」的历史排期做**概率性**的下期卡池与 UP 干员预测（带置信度、理由与信号）。
 
 [![CI](https://github.com/wsk114514/dsh-ark-wiki/actions/workflows/ci.yml/badge.svg)](https://github.com/wsk114514/dsh-ark-wiki/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
@@ -111,6 +111,27 @@ dsh plugin --profile desktop add C:\path\to\dsh-ark-wiki
 
 掉落项形如 `{ name, condition }`（`condition` 为「固定掉落」「三星获得」等，可能为 null）；敌人项形如 `{ name, count, level }`。
 
+### 第二个工具：`ark_banner_predict`
+
+```jsonc
+// 参数
+{ "hint": "莱塔尼亚活动", "banner_type": "standard", "region": "cn" }
+// banner_type 可省略（standard | limited | rerun | kernel），省略时按 hint 自动推断
+// region 默认 cn，可选 global | jp | kr | tw（非国服只在 caveats 里提示版本偏移）
+```
+
+返回 canonical JSON（`output.schema` 同样声明了 `additionalProperties: false`）：
+
+| 字段 | 含义 |
+| --- | --- |
+| `prediction_basis` | 用了哪几页卡池历史、多少期、当前时间、hint 识别出的信号；线索不足时这里会明说「线索不足，以下为基于历史规律的宽泛参考」 |
+| `candidates[]` | 3–5 名候选：`{ operator, confidence, reason, signals[] }` |
+| `candidates[].confidence` | `high`（多信号共振）/ `medium`（单一强信号）/ `low`（线索不足或数据降级，仅方向性参考） |
+| `candidates[].signals` | `skin_rerun` 皮肤复刻、`interval_overdue` 进店间隔超期、`story_tie_in` 剧情地区、`anniversary_window` 周年/季节窗口、`merch_or_ep` 周边/EP |
+| `caveats` | 必须转述给用户的不确定性说明（预测性质、数据滞后、复刻窗口规律、服务器偏移） |
+
+打分是启发式的：先解析 hint 里的地区 / 季节（春节、庆典、夏季、联动）/ 卡池类型 / 皮肤信号，再按历史间隔与窗口加权——标准轮换看「距上次进店天数 ÷ 个人轮换周期」，限定复刻看 450–520 天的常见复刻窗口与季节匹配，中坚寻访看 120–240 天轮换与「久未回归」；同 banner 内多 UP 时用个人中坚周期打破并列。标准池会排除已转入中坚池的干员（`kernelMoved`），限定池只从带 `limited=1` 头像的干员里选。所有结果都是概率性推断，**不是官方排期**。
+
 ## 免责声明与权限
 
 - **非官方**：本项目是第三方粉丝工具，与上海鹰角网络科技有限公司（Hypergryph）、《明日方舟》官方运营方以及 PRTS Wiki 维护团队均无任何隶属或授权关系。
@@ -131,6 +152,7 @@ dsh plugin --profile desktop add C:\path\to\dsh-ark-wiki
 6. **干员档案**：解析干员页的 `{{人员档案set|…}}`（体检档案键值）与 `{{人员档案|档案N=…|档案N条件=…|档案N文本=…}}`（档案资料多段），与技能/天赋共用同一次页面请求。
 7. **干员出场**：抓 PRTS 的 `干员剧情一览/六星干员`…`/一二星干员` 五个页面的 wikitable（列：干员 / 主线剧情 / 活动剧情 / 干员密录，单元格是 `[[页面|标题]]` 列表），得到「干员 → 登场剧情」全表；时间排序用 SMW `action=ask` 查 `[[活动开始时间::+]]`（约 317 条，`printouts['活动开始时间'][0].timestamp` 是秒级时间戳）给每个活动/章节补开放日期，没有日期的旧主线章节按 `Template:剧情导航` 的章节顺序插值估算（`date: null`，渲染时提示「顺序按剧情进度估算」）。索引缓存 10 分钟。
 8. **泰拉大典（世界观）**：`action=query&list=allpages&apnamespace=3000` 列出命名空间「泰拉大典」的 143 个页面作为标题索引，另加主命名空间的 `泰拉年表`、`泰拉词库`、`泰拉文字`。标题命中直接取页面解析；列表页（`泰拉大典:角色/其他`、`地理/其他`、`组织/其他`、`生物`、`百科/*`）的值是 `{{角色考据|姓名=…|…}}`/`{{地理考据|名称|…}}`/`{{百科词条|词条名|情报=…}}` 块（位置参数用模板解析器的 `positional`），所以先精确/前缀匹配块名，再退到 `list=search&srwhat=text&srnamespace=3000` 全文检索；`百科/*` 目录页命中时整页全文当作词条解释。`泰拉词库` 解析成中/英/日译名对照行。
+9. **卡池历史（预测）**：解析 PRTS「卡池一览」的静态 wikitable，共 6 页——`常驻标准寻访/{year}`、`常驻标准寻访/{year-1}`、`限时寻访`、`常驻中坚寻访/{year}`、`常驻中坚寻访/{year-1}`、`常驻中坚寻访/{year-2}`。标准页列是「序号 / 寻访页面 / 开启时间 / 6★ / 5★」，限时页是「寻访页面 / 开启时间 / 6★ / 5★」且单元格可能嵌套表格；6★/5★ 单元格里的 `{{干员头像|名字|limited=1}}` 决定「限定」只标在该干员身上（不会被整行污染）。五页并行拉取、合并后缓存 30 分钟；解析器支持同一行 `| a || b || c` 与逐行 `|` 两种写法，标准页只有 `[[文件:…|link=寻访模拟/干员轮换卡池N]]` 时用 `link=` 兜底取标题。
 
 `lib/prts.js` 负责 HTTP 细节：默认 8 秒超时（干员页/剧情索引放宽到 12 秒）、网络/5xx 重试 1 次、`AbortSignal` 透传（宿主取消会真正中断请求）、API 错误包装成 `PrtsError`。工具整体 `timeoutMs: 30000`：首次调用要先拉干员列表（约 1 秒，PRTS 偶尔到 10 秒）+ 详情页，后续命中缓存。
 
@@ -144,9 +166,10 @@ dsh-ark-wiki/
 ├── .github/workflows/
 │   └── ci.yml           # push/PR：npm ci + 离线契约 + npm pack 清单
 ├── lib/
-│   ├── index.js         # defineTool 定义、output schema、render、apply(ctx)
+│   ├── index.js         # defineTool 定义（ark_wiki_lookup + ark_banner_predict）、output schema、render、apply(ctx)
 │   ├── prts.js          # PRTS HTTP 层：apiGet / cargoQuery / searchTitles / pageContent / 模板解析
-│   └── sources.js       # 六类词条解析（含剧情/密录/档案/干员出场/泰拉大典）、匹配评分、缓存、resolveLookup 调度
+│   ├── sources.js       # 六类词条解析（含剧情/密录/档案/干员出场/泰拉大典）、匹配评分、缓存、resolveLookup 调度
+│   └── banners.js       # 卡池一览解析、索引构建、hint 解析、打分与 ark_banner_predict 执行
 ├── tools/
 │   └── harness.mjs      # 本地契约 + 数据端到端测试（node tools/harness.mjs live）
 ├── README.md
@@ -160,7 +183,7 @@ dsh-ark-wiki/
 npm install                      # 只为跑测试装 @deepseek-ai/dsh-tools（devDependency，不进包）
 npm test                         # = node tools/harness.mjs offline，不联网
 node tools/harness.mjs offline   # 不联网：schema 编译、参数校验、apply(ctx) 生命周期、effect 清理
-node tools/harness.mjs live      # 联网：24 个真实查询 + 期望断言（技能/天赋/档案/密录/剧情/干员出场/泰拉大典），输出 allValid
+node tools/harness.mjs live      # 联网：24 个 lookup 真实查询 + 3 个卡池预测用例 + 期望断言（技能/天赋/档案/密录/剧情/干员出场/泰拉大典/卡池），输出 allValid
 $env:HARNESS_SUMMARY='1'; node tools/harness.mjs live              # 只打印「allValid + 每例耗时/状态/失败标记」
 $env:HARNESS_REPORT='tools/report.json'; node tools/harness.mjs live  # 额外落盘完整 JSON（绕开 PowerShell 5.1 重定向写 UTF-16 的坑）
 ```
@@ -181,6 +204,9 @@ CI（`.github/workflows/ci.yml`）在每次 push / PR 时跑 `npm ci` + `npm tes
 - 剧情正文只取页面内嵌的 `文本数据` 演出脚本，台词截断到 60 条、角色到 20 个；`演出补充`/分支选项不解析，纯音频/图片指令按旁白丢弃（无文本时直接跳过）。关卡与剧情的关联用「`关卡代号 + 关名 + 空格` 前缀匹配导航标题」猜出来的，个别关卡若命名不一致会漏掉 `story` 字段。
 - 干员出场表依赖 `干员剧情一览/*` 的 wikitable 结构（职业二级标题 + 4 列），PRTS 改版会让整类查询失败；表格里只有剧情标题，没有集数/排序号，因此日期来自 SMW `活动开始时间`。旧主线章节（黑暗时代、异卵同生、二次呼吸、急性衰竭、靶向药物、苦难摇篮、怒号光明）在 PRTS 上没有开放时间，这部分 `date` 为 null、顺序按剧情导航估算，渲染时会明确提示；同一活动内的条目按导航顺序而不是真实游玩顺序排列。
 - 泰拉大典只有 143 个页面，角色专页仅覆盖约 100 名干员，其余角色走 `泰拉大典:角色/其他` 的 `{{角色考据}}` 汇总块；不在这些页面里的名词查不到（返回 `not_found`，不编造）。世界观搜索是「标题优先 + 全文检索兜底」的启发式，`百科/*` 目录页命中时返回整页词条摘录而非单条定义。信息框解析只取页面第一张 wikitable 的 `!键`→`|值` 配对，且对组织页/附表页禁用（这两类的表格常是布局表或编辑格式示例）。
+- 卡池预测是**统计启发式，不是官方排期**，也不存在可靠的内幕数据源：标准轮换按个人历史周期估、限定复刻按 450–520 天窗口与季节估、中坚按 120–240 天轮换估，全部权重是社区经验拟合，无法保证命中；`confidence` 最高只到 `medium`（除多信号共振外不标 `high`），线索不足时统一降为 `low` 并在 `prediction_basis` 里明说。
+- 卡池历史只覆盖 PRTS「卡池一览」里静态列出的 6 页（约 272 期）；页面若改版、或新一期尚未被编辑补录，预测会缺最近数据（`prediction_basis` 会给出「最近一期」日期，模型应把它转述给用户）。
+- 非国服（`region=global/jp/kr/tw`）只做提示：PRTS 卡池页基本是国服排期，工具不会换算外服时间，`caveats` 里会说明版本偏移。
 
 ## 兼容性
 
