@@ -4,7 +4,11 @@
 // it is built once and committed instead of fetched on every tool call.
 //
 // Usage:
-//   node tools/build-story-cast.mjs [--since 2024-01-01] [--limit 20] [--out data/story-cast.json]
+//   node tools/build-story-cast.mjs [--since 2019-01-01] [--limit 20] [--out data/story-cast.json]
+//
+// By default the whole back catalogue of 主线/活动剧情 is scanned, not just the
+// last couple of years: regions that have not appeared recently (卡西米尔, 谢拉格…)
+// would otherwise end up with zero region votes and their NPCs could never win.
 //
 // Notes:
 // - Only 主线剧情 / 活动剧情 pages are scanned; 干员密录 rarely introduces new
@@ -25,11 +29,11 @@ const readArg = (name, fallback) => {
   return prefixed ? prefixed.split('=')[1] : fallback
 }
 
-const since = Date.parse(readArg('--since', '2024-01-01') + 'T00:00:00Z')
+const since = Date.parse(readArg('--since', '2019-01-01') + 'T00:00:00Z')
 const limit = Number(readArg('--limit', '0')) || 0
 const out = readArg('--out', 'data/story-cast.json')
 const CONCURRENCY = 4
-const GENERIC = /(士兵|干员|队员|卫兵|守卫|群众|路人|研究员|术师|战士|猎人|村民|市民|岛民|镇民|居民|平民|国人|感染者|商人|工人|祭司|教徒|信使|佣兵|队长|首领|主持人|记者|主播|观众|客人|服务员|保安|警察|医生|护士|学生|老师|孩子|男人|女人|老者|青年|少女|少年|帝王|贵族|仆从|侍从|工匠|匠|厨师|店员|领班|职员|军官|军人|将领|士兵长|后勤|通讯员|广播|节目|声音|旁白|未知|某人|众人|小贩|渔夫|水手|船员|乘客|侍者|卫队|巡逻|哨兵)/
+const GENERIC = /(士兵|干员|队员|卫兵|守卫|群众|路人|研究员|术师|战士|猎人|村民|市民|岛民|镇民|居民|平民|国人|感染者|商人|工人|祭司|教徒|信使|佣兵|队长|首领|主持人|记者|主播|观众|客人|服务员|保安|警察|医生|护士|学生|老师|孩子|男人|女人|老者|青年|少女|少年|帝王|贵族|仆从|侍从|工匠|匠|厨师|店员|领班|职员|军官|军人|将领|士兵长|后勤|通讯员|广播|节目|声音|旁白|未知|某人|众人|小贩|渔夫|水手|船员|乘客|侍者|卫队|巡逻|哨兵|员工|雇员|店主|老板|经理|顾客|客户|嘉宾|选手|裁判|教练|司机|学徒|搭档|负责人|代表|专家|学者|教授|讲师|编辑|画家|作家|歌手|演员|偶像|艺人|模特|摄影师|导演|编剧|听众|读者|粉丝|会员|业务员|推销员|送货员|清洁工|门卫|前台|接待|秘书|助理|干部|官员|议员|律师|法官|囚犯|犯人|难民|奴隶|劳工|矿工|农民|牧民|渔民|航海士|工程师|技术员|机械师|驾驶员|飞行员|领航员|调酒师|招待|老板娘|店长|所长|署长|局长|科长|部长|会长|社长|团长|镇长|村长|乡长|先生|女士|小姐|夫人|太太|老爷子|老太|老头)/
 
 const [timing, entries] = await Promise.all([
   loadStoryTiming(),

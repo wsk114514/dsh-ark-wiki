@@ -536,6 +536,14 @@ const cases = mode === 'offline'
           && /实装校验/.test(value.caveats)
       },
       {
+        // wiki 标题检索实装校验：玛嘉烈 是干员「临光」的本名（页面「玛嘉烈・临光」），
+        // 必须被剔除；这里同时确认候选都不是已实装干员。
+        tool: arkBannerPredict,
+        args: { hint: '卡西米尔下个版本会出哪些新角色' },
+        assert: value => value.candidates.length >= 1
+          && !value.candidates.some(item => ['玛嘉烈', '临光'].includes(item.operator))
+      },
+      {
         tool: arkBannerPredict,
         args: { hint: '塔露拉会实装吗' },
         assert: value => value.candidates.some(item => item.operator === '塔露拉')
