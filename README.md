@@ -125,12 +125,12 @@ dsh plugin --profile desktop add C:\path\to\dsh-ark-wiki
 | 字段 | 含义 |
 | --- | --- |
 | `prediction_basis` | 用了哪几页卡池历史、多少期、当前时间、hint 识别出的信号；线索不足时这里会明说「线索不足，以下为基于历史规律的宽泛参考」 |
-| `candidates[]` | 3–5 名候选：`{ operator, confidence, reason, signals[] }` |
+| `candidates[]` | 3–4 名候选：`{ operator, confidence, reason, signals[] }`；春节/新年限定或数据不可用时为空数组 |
 | `candidates[].confidence` | `high`（多信号共振）/ `medium`（单一强信号）/ `low`（线索不足或数据降级，仅方向性参考） |
-| `candidates[].signals` | `skin_rerun` 皮肤复刻、`interval_overdue` 进店间隔超期、`story_tie_in` 剧情地区、`anniversary_window` 周年/季节窗口、`merch_or_ep` 周边/EP |
-| `caveats` | 必须转述给用户的不确定性说明（预测性质、数据滞后、复刻窗口规律、服务器偏移） |
+| `candidates[].signals` | `skin_rerun` 皮肤复刻、`interval_overdue` 进店间隔超期、`story_tie_in` 剧情地区 / 长期无新剧情地区、`story_appearance` 剧情中反复出现的角色、`anniversary_window` 周年/季节窗口、`merch_or_ep` 周边/EP |
+| `caveats` | 必须转述给用户的不确定性说明（预测性质、数据滞后、复刻窗口规律、服务器偏移、剧情代理指标） |
 
-打分是启发式的：先解析 hint 里的地区 / 季节（春节、庆典、夏季、联动）/ 卡池类型 / 皮肤信号，再按历史间隔与窗口加权——标准轮换看「距上次进店天数 ÷ 个人轮换周期」，限定复刻看 450–520 天的常见复刻窗口与季节匹配，中坚寻访看 120–240 天轮换与「久未回归」；同 banner 内多 UP 时用个人中坚周期打破并列。标准池会排除已转入中坚池的干员（`kernelMoved`），限定池只从带 `limited=1` 头像的干员里选。所有结果都是概率性推断，**不是官方排期**。
+打分以**剧情信号**为主、排期历史为辅：先解析 hint 里的地区 / 季节（庆典、夏季、联动）/ 卡池类型 / 皮肤信号；再给「剧情中出场次数多」的重要角色加分（`story_appearance`，主线 / 活动 / 密录合计，2 次起算、上限 +2）；给「所属地区超过 9 个月没有新剧情」的角色加分（`story_tie_in`，上限 +1.5，依据是该地区角色最近一次剧情登场的日期）；最后才按历史间隔加权——标准轮换看「距上次进店天数 ÷ 个人轮换周期」，限定复刻看 450–520 天的常见复刻窗口与季节匹配，中坚寻访看 120–240 天轮换与「久未回归」。标准池会排除已转入中坚池的干员（`kernelMoved`），限定池只从带 `limited=1` 头像的干员里选。春节/新年限定**不预测**：hint 命中「春节 / 新年」时直接返回空候选，不拉取任何网络数据（省时省 token）。所有结果都是概率性推断，**不是官方排期**。
 
 ## 免责声明与权限
 
@@ -153,6 +153,7 @@ dsh plugin --profile desktop add C:\path\to\dsh-ark-wiki
 7. **干员出场**：抓 PRTS 的 `干员剧情一览/六星干员`…`/一二星干员` 五个页面的 wikitable（列：干员 / 主线剧情 / 活动剧情 / 干员密录，单元格是 `[[页面|标题]]` 列表），得到「干员 → 登场剧情」全表；时间排序用 SMW `action=ask` 查 `[[活动开始时间::+]]`（约 317 条，`printouts['活动开始时间'][0].timestamp` 是秒级时间戳）给每个活动/章节补开放日期，没有日期的旧主线章节按 `Template:剧情导航` 的章节顺序插值估算（`date: null`，渲染时提示「顺序按剧情进度估算」）。索引缓存 10 分钟。
 8. **泰拉大典（世界观）**：`action=query&list=allpages&apnamespace=3000` 列出命名空间「泰拉大典」的 143 个页面作为标题索引，另加主命名空间的 `泰拉年表`、`泰拉词库`、`泰拉文字`。标题命中直接取页面解析；列表页（`泰拉大典:角色/其他`、`地理/其他`、`组织/其他`、`生物`、`百科/*`）的值是 `{{角色考据|姓名=…|…}}`/`{{地理考据|名称|…}}`/`{{百科词条|词条名|情报=…}}` 块（位置参数用模板解析器的 `positional`），所以先精确/前缀匹配块名，再退到 `list=search&srwhat=text&srnamespace=3000` 全文检索；`百科/*` 目录页命中时整页全文当作词条解释。`泰拉词库` 解析成中/英/日译名对照行。
 9. **卡池历史（预测）**：解析 PRTS「卡池一览」的静态 wikitable，共 6 页——`常驻标准寻访/{year}`、`常驻标准寻访/{year-1}`、`限时寻访`、`常驻中坚寻访/{year}`、`常驻中坚寻访/{year-1}`、`常驻中坚寻访/{year-2}`。标准页列是「序号 / 寻访页面 / 开启时间 / 6★ / 5★」，限时页是「寻访页面 / 开启时间 / 6★ / 5★」且单元格可能嵌套表格；6★/5★ 单元格里的 `{{干员头像|名字|limited=1}}` 决定「限定」只标在该干员身上（不会被整行污染）。五页并行拉取、合并后缓存 30 分钟；解析器支持同一行 `| a || b || c` 与逐行 `|` 两种写法，标准页只有 `[[文件:…|link=寻访模拟/干员轮换卡池N]]` 时用 `link=` 兜底取标题。
+10. **剧情信号（预测）**：复用第 7 条的「干员剧情一览」索引，统计每位干员在主线 / 活动 / 密录中的出场次数与最近一次剧情登场日期（用第 7 条的 SMW 日期与主线插值）；再按干员的 `nation/organization/team` 归并到地区，得到「每个地区最近一次有新剧情」的日期。地区距今超过 270 天（9 个月）即进入 `staleRegions`，预测时给该地区角色加分。整份信号缓存 15 分钟。
 
 `lib/prts.js` 负责 HTTP 细节：默认 8 秒超时（干员页/剧情索引放宽到 12 秒）、网络/5xx 重试 1 次、`AbortSignal` 透传（宿主取消会真正中断请求）、API 错误包装成 `PrtsError`。工具整体 `timeoutMs: 30000`：首次调用要先拉干员列表（约 1 秒，PRTS 偶尔到 10 秒）+ 详情页，后续命中缓存。
 
@@ -169,6 +170,8 @@ dsh-ark-wiki/
 │   ├── index.js         # defineTool 定义（ark_wiki_lookup + ark_banner_predict）、output schema、render、apply(ctx)
 │   ├── prts.js          # PRTS HTTP 层：apiGet / cargoQuery / searchTitles / pageContent / 模板解析
 │   ├── sources.js       # 六类词条解析（含剧情/密录/档案/干员出场/泰拉大典）、匹配评分、缓存、resolveLookup 调度
+│   ├── regions.js       # 地区别名与「干员 ↔ 地区」匹配（预测用）
+│   ├── story-signals.js # 剧情出场次数 / 地区最近新剧情日期 / staleRegions（预测用）
 │   └── banners.js       # 卡池一览解析、索引构建、hint 解析、打分与 ark_banner_predict 执行
 ├── tools/
 │   └── harness.mjs      # 本地契约 + 数据端到端测试（node tools/harness.mjs live）
@@ -183,7 +186,7 @@ dsh-ark-wiki/
 npm install                      # 只为跑测试装 @deepseek-ai/dsh-tools（devDependency，不进包）
 npm test                         # = node tools/harness.mjs offline，不联网
 node tools/harness.mjs offline   # 不联网：schema 编译、参数校验、apply(ctx) 生命周期、effect 清理
-node tools/harness.mjs live      # 联网：24 个 lookup 真实查询 + 3 个卡池预测用例 + 期望断言（技能/天赋/档案/密录/剧情/干员出场/泰拉大典/卡池），输出 allValid
+node tools/harness.mjs live      # 联网：24 个 lookup 真实查询 + 5 个卡池预测用例 + 期望断言（技能/天赋/档案/密录/剧情/干员出场/泰拉大典/卡池/剧情信号），输出 allValid
 $env:HARNESS_SUMMARY='1'; node tools/harness.mjs live              # 只打印「allValid + 每例耗时/状态/失败标记」
 $env:HARNESS_REPORT='tools/report.json'; node tools/harness.mjs live  # 额外落盘完整 JSON（绕开 PowerShell 5.1 重定向写 UTF-16 的坑）
 ```
@@ -204,7 +207,9 @@ CI（`.github/workflows/ci.yml`）在每次 push / PR 时跑 `npm ci` + `npm tes
 - 剧情正文只取页面内嵌的 `文本数据` 演出脚本，台词截断到 60 条、角色到 20 个；`演出补充`/分支选项不解析，纯音频/图片指令按旁白丢弃（无文本时直接跳过）。关卡与剧情的关联用「`关卡代号 + 关名 + 空格` 前缀匹配导航标题」猜出来的，个别关卡若命名不一致会漏掉 `story` 字段。
 - 干员出场表依赖 `干员剧情一览/*` 的 wikitable 结构（职业二级标题 + 4 列），PRTS 改版会让整类查询失败；表格里只有剧情标题，没有集数/排序号，因此日期来自 SMW `活动开始时间`。旧主线章节（黑暗时代、异卵同生、二次呼吸、急性衰竭、靶向药物、苦难摇篮、怒号光明）在 PRTS 上没有开放时间，这部分 `date` 为 null、顺序按剧情导航估算，渲染时会明确提示；同一活动内的条目按导航顺序而不是真实游玩顺序排列。
 - 泰拉大典只有 143 个页面，角色专页仅覆盖约 100 名干员，其余角色走 `泰拉大典:角色/其他` 的 `{{角色考据}}` 汇总块；不在这些页面里的名词查不到（返回 `not_found`，不编造）。世界观搜索是「标题优先 + 全文检索兜底」的启发式，`百科/*` 目录页命中时返回整页词条摘录而非单条定义。信息框解析只取页面第一张 wikitable 的 `!键`→`|值` 配对，且对组织页/附表页禁用（这两类的表格常是布局表或编辑格式示例）。
-- 卡池预测是**统计启发式，不是官方排期**，也不存在可靠的内幕数据源：标准轮换按个人历史周期估、限定复刻按 450–520 天窗口与季节估、中坚按 120–240 天轮换估，全部权重是社区经验拟合，无法保证命中；`confidence` 最高只到 `medium`（除多信号共振外不标 `high`），线索不足时统一降为 `low` 并在 `prediction_basis` 里明说。
+- 卡池预测是**统计启发式 + 剧情信号，不是官方排期**，也不存在可靠的内幕数据源：优先看剧情——「剧情中反复出现」按出场次数加分（2 次起、上限 +2），「所属地区超过 9 个月没有新剧情」加分（上限 +1.5）；再按历史间隔估（标准轮换按个人周期、限定复刻按 450–520 天窗口与季节、中坚按 120–240 天轮换），全部权重是社区经验拟合，无法保证命中；`confidence` 最高只到 `medium`（多信号共振才可能 `high`），线索不足时统一降为 `low` 并在 `prediction_basis` 里明说。
+- 剧情信号的口径限制：只统计「干员剧情一览」收录的剧情页（主线/活动/密录），密录不计入「最近新剧情」；地区是否「9 个月无新剧情」以该地区角色的最近一次登场为代理指标，角色跨地区出场会高估地区新鲜度。早期主线章节的日期是估算值，只用于粗判。PRTS 若改版该表，剧情信号会整体降级为空，预测退回纯排期启发式（`caveats` 会提示）。
+- 春节/新年限定**不预测**：`hint` 命中「春节 / 新年 / 过年」时直接返回空候选与说明，不拉取任何网络数据；这是有意为之（该档期规律弱、证据少），不是数据缺失。
 - 卡池历史只覆盖 PRTS「卡池一览」里静态列出的 6 页（约 272 期）；页面若改版、或新一期尚未被编辑补录，预测会缺最近数据（`prediction_basis` 会给出「最近一期」日期，模型应把它转述给用户）。
 - 非国服（`region=global/jp/kr/tw`）只做提示：PRTS 卡池页基本是国服排期，工具不会换算外服时间，`caveats` 里会说明版本偏移。
 
@@ -217,7 +222,7 @@ CI（`.github/workflows/ci.yml`）在每次 push / PR 时跑 `npm ci` + `npm tes
 
 ## 发布
 
-- GitHub：仓库已公开，`dsh-plugin` topic 已加，tag `v0.5.0` 已推送（`v0.4.0` 为上一版）。
+- GitHub：仓库已公开，`dsh-plugin` topic 已加，tag `v0.6.0` 已推送（`v0.5.0` 为上一版）。
 - npm：**未发布**。npm 2026 年起要求发布者使用安全密钥 2FA，而新账号已无法登记 TOTP（`npm profile enable-2fa` 返回 E404）；在满足该条件前只走 GitHub 源码安装。
 - dsh-plugin.org：收录申请已提交（[dshplugin/dsh-plugin-hub#324](https://github.com/dshplugin/dsh-plugin-hub/issues/324)），等待人工核实时状态为 `unconfirmed`。
 

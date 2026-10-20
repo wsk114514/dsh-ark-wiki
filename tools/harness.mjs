@@ -179,8 +179,10 @@ const kernelMovedIndex = buildBannerIndex([
 
 const regionHint = parseBannerHint('莱塔尼亚活动')
 contractCheck('region hint infers standard', regionHint.bannerType === 'standard' && regionHint.regions.some(item => item.canonical === '莱塔尼亚'))
-const limitedHint = parseBannerHint('春节限定')
-contractCheck('season hint infers limited', limitedHint.bannerType === 'limited' && limitedHint.season === '春节')
+const limitedHint = parseBannerHint('夏季限定')
+contractCheck('season hint infers limited', limitedHint.bannerType === 'limited' && limitedHint.season === '夏季')
+const newYearHint = parseBannerHint('春节限定')
+contractCheck('new-year hint is flagged', newYearHint.newYear === true && newYearHint.bannerType === 'limited', newYearHint)
 const vagueHint = parseBannerHint('随便猜猜')
 contractCheck('vague hint is flagged as insufficient', vagueHint.hintUsed === false && vagueHint.bannerType === 'standard')
 
@@ -213,11 +215,44 @@ contractCheck('region prediction schema valid', T.validateJsonSchemaValue(arkBan
 const seasonPrediction = predictBanners({
   entries: FIXTURE_ENTRIES,
   index: fixtureIndex,
-  hint: '春节限定',
+  hint: '夏季限定',
   now
 })
 contractCheck('season prediction only offers limited operators', seasonPrediction.candidates.every(item => item.operator === '年'), seasonPrediction.candidates.map(item => item.operator))
 contractCheck('season prediction includes interval evidence', /天/.test(seasonPrediction.candidates[0]?.reason ?? ''), seasonPrediction.candidates[0]?.reason)
+
+const newYearPrediction = predictBanners({
+  entries: FIXTURE_ENTRIES,
+  index: fixtureIndex,
+  hint: '春节限定',
+  now
+})
+contractCheck('new-year hint yields no candidates', newYearPrediction.candidates.length === 0, newYearPrediction.candidates)
+contractCheck('new-year hint explains the skip', /不预测/.test(newYearPrediction.prediction_basis), newYearPrediction.prediction_basis)
+contractCheck('new-year prediction schema valid', T.validateJsonSchemaValue(arkBannerPredict.output.schema, newYearPrediction).length === 0,
+  T.validateJsonSchemaValue(arkBannerPredict.output.schema, newYearPrediction))
+
+const storyFixture = {
+  byOperator: new Map([
+    ['斥罪', { total: 6, main: 1, event: 4, memory: 1, latestTs: Date.parse('2025-09-01T00:00:00+08:00') }],
+    ['玛恩纳', { total: 1, main: 0, event: 1, memory: 0, latestTs: Date.parse('2026-08-01T00:00:00+08:00') }]
+  ]),
+  staleRegions: [{ canonical: '莱塔尼亚', ts: Date.parse('2025-06-01T00:00:00+08:00'), months: 16 }]
+}
+const storyPrediction = predictBanners({
+  entries: FIXTURE_ENTRIES,
+  index: fixtureIndex,
+  hint: '莱塔尼亚活动',
+  story: storyFixture,
+  now
+})
+const storyCandidate = storyPrediction.candidates.find(item => item.operator === '斥罪')
+contractCheck('story appearance adds a boost signal', storyCandidate?.signals.includes('story_appearance'), storyCandidate)
+contractCheck('story appearance reason cites the count', /剧情中共出场 6 次/.test(storyCandidate?.reason ?? ''), storyCandidate?.reason)
+contractCheck('stale region reason cites months', /莱塔尼亚.*16 个月/.test(storyCandidate?.reason ?? ''), storyCandidate?.reason)
+contractCheck('story prediction basis lists story signals', /剧情信号/.test(storyPrediction.prediction_basis), storyPrediction.prediction_basis)
+contractCheck('story prediction schema valid', T.validateJsonSchemaValue(arkBannerPredict.output.schema, storyPrediction).length === 0,
+  T.validateJsonSchemaValue(arkBannerPredict.output.schema, storyPrediction))
 
 const vaguePrediction = predictBanners({
   entries: FIXTURE_ENTRIES,
@@ -366,17 +401,31 @@ const cases = mode === 'offline'
         tool: arkBannerPredict,
         args: { hint: '莱塔尼亚活动，下期标准轮换' },
         assert: value => value.candidates.length >= 3
-          && value.candidates.length <= 5
+          && value.candidates.length <= 4
           && value.candidates.every(item => ['high', 'medium', 'low'].includes(item.confidence))
           && value.prediction_basis.length > 0
+          && value.prediction_basis.includes('剧情信号')
           && (value.caveats.includes('概率') || value.caveats.includes('排期'))
       },
       {
+        // 春节/新年限定 is skipped by design: no network, no candidates.
         tool: arkBannerPredict,
         args: { hint: '春节限定池' },
+        assert: value => value.candidates.length === 0
+          && /不预测/.test(value.prediction_basis)
+      },
+      {
+        tool: arkBannerPredict,
+        args: { hint: '夏季限定池' },
         assert: value => value.candidates.length >= 1
           && value.prediction_basis.includes('限定')
           && value.candidates.every(item => typeof item.operator === 'string' && item.reason.length > 0)
+      },
+      {
+        tool: arkBannerPredict,
+        args: { hint: '维多利亚复刻' },
+        assert: value => value.candidates.length >= 1
+          && value.candidates.every(item => ['high', 'medium', 'low'].includes(item.confidence))
       },
       {
         tool: arkBannerPredict,
