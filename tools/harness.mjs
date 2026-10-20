@@ -552,6 +552,16 @@ const cases = mode === 'offline'
           && value.candidates.every(item => item.kind === 'new' || item.kind === 'alter')
       },
       {
+        // 地区票过滤：普瑞赛斯（拉特兰 5/69）与奥卢斯（拉特兰 4/22）曾因同场
+        // 萨科塔/伊比利亚干员「带票」被当成拉特兰角色，占半数以上才应算命中。
+        tool: arkBannerPredict,
+        args: { hint: '拉特兰的下一个新角色' },
+        assert: value => value.candidates.length >= 1
+          && !value.candidates.some(item => ['普瑞赛斯', '奥卢斯'].includes(item.operator))
+          && /占该人物出场票/.test(value.prediction_basis)
+          && value.candidates.some(item => /拉特兰/.test(item.reason))
+      },
+      {
         tool: arkBannerPredict,
         args: { hint: '安洁莉娜很久没新剧情了，会不会异格' },
         assert: value => value.candidates.some(item => item.kind === 'alter')
