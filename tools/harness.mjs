@@ -542,6 +542,8 @@ const cases = mode === 'offline'
         args: { hint: '卡西米尔下个版本会出哪些新角色' },
         assert: value => value.candidates.length >= 1
           && !value.candidates.some(item => ['玛嘉烈', '临光'].includes(item.operator))
+          // 多轮补位会重复调用校验，说明文字只能出现一次
+          && (value.prediction_basis.match(/按标题检索/g) ?? []).length === 1
       },
       {
         tool: arkBannerPredict,
