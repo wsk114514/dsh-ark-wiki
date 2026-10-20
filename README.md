@@ -164,7 +164,7 @@ dsh plugin --profile desktop add C:\path\to\dsh-ark-wiki
 9. **卡池历史（预测）**：解析 PRTS「卡池一览」的静态 wikitable，共 6 页——`常驻标准寻访/{year}`、`常驻标准寻访/{year-1}`、`限时寻访`、`常驻中坚寻访/{year}`、`常驻中坚寻访/{year-1}`、`常驻中坚寻访/{year-2}`。标准页列是「序号 / 寻访页面 / 开启时间 / 6★ / 5★」，限时页是「寻访页面 / 开启时间 / 6★ / 5★」且单元格可能嵌套表格；6★/5★ 单元格里的 `{{干员头像|名字|limited=1}}` 决定「限定」只标在该干员身上（不会被整行污染）。五页并行拉取、合并后缓存 30 分钟；解析器支持同一行 `| a || b || c` 与逐行 `|` 两种写法，标准页只有 `[[文件:…|link=寻访模拟/干员轮换卡池N]]` 时用 `link=` 兜底取标题。
 10. **剧情信号（卡池排期用）**：复用第 7 条的「干员剧情一览」索引，统计每位干员在主线 / 活动 / 密录中的出场次数与最近一次剧情登场日期（用第 7 条的 SMW 日期与主线插值）；再按干员的 `nation/organization/team` 归并到地区，得到「每个地区最近一次有新剧情」的日期。地区距今超过 270 天（9 个月）即进入 `staleRegions`，排期模式预测时给该地区角色加分。整份信号缓存 15 分钟。
 11. **剧情卡司（新角色预测用）**：`tools/build-story-cast.mjs` 扫描 `Template:剧情导航` 里 2024-01-01 之后的 577 段主线/活动剧情，取 `/BEG`、`/END` 子页的演出脚本，按 `[name="…"]` 统计每个说话者的出场段数、主线/活动分布、最近出场日期与同场干员的阵营投票（得到 `阿戈尔(64)` 这类地区计数），产物 `data/story-cast.json`（约 217 KB，641 名说话者，只保留 ≥2 段）。`tools/build-story-aliases.mjs` 再对 519 名非干员说话者查 PRTS 页面：命中 `{{干员页面名|…}}` 的归并回已实装干员（如 恩雅→初雪、维娜→维娜·维多利亚），命中 `{{敌人信息…}}` 的标为 `enemy`，其余分 `story` / `unknown`（实测 unknown 464、story 6、enemy 36、operator 13）。这份数据随包发布，运行时直接读文件，不联网（`npm run data:cast` 可重新生成，需联网）。
-12. **干员本名/外号（实装校验用）**：PRTS 没有「干员本名」列表页（`干员一览` 由 Cargo 驱动，只有代号/外文名/日文名），干员页也没有 `/档案` 子页——档案内嵌在干员页模板参数里（`|档案3=客观履历`、`|档案3文本=…`）。`tools/build-operator-aliases.mjs` 因此逐个抓取干员页、从「客观履历」段落里认出说话者的本名与外号（句式：`X，曾任…`、`只有朋友才叫她「X」`、`本名是 X`），只保留唯一命中的映射，产物 `data/operator-aliases.json`（实测扫描 434 名干员、命中 16 条，0 条歧义）。运行时与 `ark-info` 的 `enName/jaName` 合并成 `releasedBy` 表，预测出的新角色命中即剔除。
+12. **干员本名/外号（实装校验用）**：PRTS 没有「干员本名」列表页（`干员一览` 由 Cargo 驱动，只有代号/外文名/日文名），干员页也没有 `/档案` 子页——档案内嵌在干员页模板参数里（`|档案3=客观履历`、`|档案3文本=…`）。`tools/build-operator-aliases.mjs` 因此逐个抓取干员页、从「客观履历」段落里认出说话者的本名与外号（句式：`X，曾任…`、`只有朋友才叫她「X」`、`本名是 X`），只保留唯一命中的映射，产物 `data/operator-aliases.json`（实测扫描 434 名干员、命中 16 条，0 条歧义）。运行时与 `ark-info` 的 `enName/jaName` 合并成 `releasedBy` 表，预测出的新角色命中即剔除；快照超过 45 天未更新时，预测的 `caveats` 会提醒重新生成（避免新实装干员漏判）。
 
 `lib/prts.js` 负责 HTTP 细节：默认 8 秒超时（干员页/剧情索引放宽到 12 秒）、网络/5xx 重试 1 次、`AbortSignal` 透传（宿主取消会真正中断请求）、API 错误包装成 `PrtsError`。工具整体 `timeoutMs: 30000`：首次调用要先拉干员列表（约 1 秒，PRTS 偶尔到 10 秒）+ 详情页，后续命中缓存。
 
@@ -245,7 +245,7 @@ CI（`.github/workflows/ci.yml`）在每次 push / PR 时跑 `npm ci` + `npm tes
 
 ## 发布
 
-- GitHub：仓库已公开，`dsh-plugin` topic 已加，tag `v0.7.3` 已推送（`v0.7.2` 为上一版）。
+- GitHub：仓库已公开，`dsh-plugin` topic 已加，tag `v0.7.4` 已推送（`v0.7.3` 为上一版）。
 - npm：**未发布**。npm 2026 年起要求发布者使用安全密钥 2FA，而新账号已无法登记 TOTP（`npm profile enable-2fa` 返回 E404）；在满足该条件前只走 GitHub 源码安装。
 - dsh-plugin.org：收录申请已提交（[dshplugin/dsh-plugin-hub#324](https://github.com/dshplugin/dsh-plugin-hub/issues/324)），等待人工核实时状态为 `unconfirmed`。
 
