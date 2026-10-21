@@ -13,6 +13,7 @@ import * as T from '@deepseek-ai/dsh-tools'
 import { writeFileSync } from 'node:fs'
 import { arkWikiLookup, arkBannerPredict, name, inject, apply } from '../lib/index.js'
 import { loadStoryCast, predictDebut, loadOperatorAliases } from '../lib/debut.js'
+import { collabHits, isCollabEvent, loadCollabEvents } from '../lib/collab-events.js'
 import {
   buildBannerIndex,
   kernelMoved,
@@ -324,6 +325,33 @@ contractCheck('stale operator becomes a medium alter candidate',
   alterDebut.candidates.find(item => item.operator === '玛恩纳')?.confidence === 'medium',
   alterDebut.candidates.find(item => item.operator === '玛恩纳'))
 contractCheck('already-altered operator is rejected with an explanation', /已经异格实装/.test(alterDebut.caveats), alterDebut.caveats)
+contractCheck('alter candidate cites the 4-year release rule',
+  /首次进池于 2022-09-08/.test(alterDebut.candidates.find(item => item.operator === '玛恩纳')?.reason ?? '') &&
+  /超过 4 年/.test(alterDebut.candidates.find(item => item.operator === '玛恩纳')?.reason ?? ''),
+  alterDebut.candidates.find(item => item.operator === '玛恩纳'))
+
+// --- 0.9.0 rules: collab cameo (+2%) and 4-year-old first release (alter) ---
+const collabDebut = predictDebut({ regions: ['玻利瓦尔'], entries: FIXTURE_ENTRIES, signals: storyFixture, now })
+const collabIndex = loadCollabEvents()
+contractCheck('collab event list is available',
+  collabIndex.missing === false && collabIndex.names.includes('源石尘行动') && collabIndex.names.includes('无忧梦呓'),
+  { missing: collabIndex.missing, names: collabIndex.names })
+contractCheck('collab segments are counted from story groups',
+  collabHits(['源石尘行动(12)', '孤星(3)']).count === 12, collabHits(['源石尘行动(12)', '孤星(3)']))
+contractCheck('non-collab stories contribute no collab segments',
+  collabHits(['孤星(3)', '吾导先路(5)']).count === 0, collabHits(['孤星(3)', '吾导先路(5)']))
+contractCheck('collab rerun titles still match',
+  isCollabEvent('源石尘行动2024') === true && isCollabEvent('孤星') === false)
+contractCheck('collab cameo is explained in the candidate reason',
+  /联动剧情「[^」]*源石尘行动/.test(collabDebut.candidates.map(item => item.reason).join(' ')),
+  collabDebut.candidates.map(item => item.reason))
+contractCheck('collab cameo adds a signal instead of a veto',
+  collabDebut.candidates.every(item => Array.isArray(item.signals)) &&
+  collabDebut.candidates.some(item => item.signals.includes('collab_cameo')),
+  collabDebut.candidates.map(item => item.signals))
+contractCheck('debut basis states the collab and 4-year rules',
+  /联动加成/.test(regionDebut.prediction_basis) && /异格加权/.test(regionDebut.prediction_basis),
+  regionDebut.prediction_basis)
 
 contractCheck('debut caveats warn about weak signals', /弱信号/.test(regionDebut.caveats), regionDebut.caveats)
 
