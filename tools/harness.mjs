@@ -15,6 +15,15 @@ import { arkWikiLookup, arkBannerPredict, name, inject, apply } from '../lib/ind
 import { loadStoryCast, predictDebut, loadOperatorAliases } from '../lib/debut.js'
 import { collabHits, isCollabEvent, loadCollabEvents } from '../lib/collab-events.js'
 import {
+  collectRegionDossiers,
+  extractArchiveClues,
+  extractRecordClues,
+  formatDossierNotes,
+  parseRecordLines,
+  resetDossierCache,
+  selectRegionOperators
+} from '../lib/operator-dossiers.js'
+import {
   buildBannerIndex,
   kernelMoved,
   parseBannerDate,
@@ -354,6 +363,73 @@ contractCheck('debut basis states the collab and 4-year rules',
   regionDebut.prediction_basis)
 
 contractCheck('debut caveats warn about weak signals', /弱信号/.test(regionDebut.caveats), regionDebut.caveats)
+
+// --- region operator dossiers: archives + 干员密录 as weak signals ------------
+const dossierEntries = [
+  { name: '缪尔赛思', stars: 6, nation: '哥伦比亚', page: '缪尔赛思' },
+  { name: '塞雷娅', stars: 6, nation: '哥伦比亚' },
+  { name: '斥罪', stars: 6, nation: '莱塔尼亚' }
+]
+const pickedDossiers = selectRegionOperators(dossierEntries, '哥伦比亚', { signals: storyFixture, limit: 3, now })
+contractCheck('dossier selection keeps only operators of the region',
+  pickedDossiers.length === 2 && pickedDossiers.every(entry => entry.nation === '哥伦比亚'),
+  pickedDossiers.map(entry => entry.name))
+
+const archiveClues = extractArchiveClues([
+  { title: '基础档案', text: '哥伦比亚，莱茵生命。' },
+  { title: '档案资料四', text: '缪尔赛思仍打算回哥伦比亚处理莱茵生命的旧账。她的导师留在特里蒙，至今没有下落。' },
+  { title: '临床诊断分析', text: '体检标准沿用哥伦比亚。' }
+], ['哥伦比亚', '莱茵生命'])
+contractCheck('archive clues keep only region sentences from written archives',
+  archiveClues.length === 1 && archiveClues[0].text.includes('哥伦比亚') && archiveClues[0].title === '档案资料四',
+  archiveClues)
+
+const recordLines = parseRecordLines([
+  '[name="缪尔赛思"]我打算回哥伦比亚一趟。',
+  '[charslot(slot="l")]',
+  '[name="生态科研究员A"]莱茵生命最近不太安稳。',
+  '[name="塞雷娅"]总辖的位置一直空着。'
+].join('\n'))
+contractCheck('record parser keeps speaker and line, drops engine tags', recordLines.length === 3, recordLines)
+const recordClues = extractRecordClues(recordLines, ['哥伦比亚', '莱茵生命'])
+contractCheck('record clues filter by region mention',
+  recordClues.length === 2 && recordClues[0].text.includes('哥伦比亚'), recordClues)
+
+resetDossierCache()
+const fakeDossierPage = async (title) => {
+  if (title === '缪尔赛思') {
+    return { missing: false, content: '{{人员档案|档案1=档案资料一|档案1文本=缪尔赛思在哥伦比亚长大，后来加入了莱茵生命。}}' }
+  }
+  if (title === '缪尔赛思/干员密录/1') {
+    return { missing: false, content: '[name="缪尔赛思"]我们该回哥伦比亚看看了。' }
+  }
+  return { missing: true, content: '' }
+}
+const fakeDossierRecords = async () => [{ set: '无根之雨', index: '1', page: '缪尔赛思/干员密录/1' }]
+const regionDossier = await collectRegionDossiers({
+  canonical: '哥伦比亚',
+  entries: dossierEntries,
+  signals: storyFixture,
+  now,
+  fetchPage: fakeDossierPage,
+  fetchRecords: fakeDossierRecords,
+  useCache: false
+})
+contractCheck('dossier collector merges archive and 密录 clues',
+  regionDossier.clues.length >= 2 &&
+  regionDossier.clues.some(clue => clue.source === '档案') &&
+  regionDossier.clues.some(clue => clue.source === '密录'),
+  regionDossier.clues)
+contractCheck('dossier clue carries source operator and link',
+  regionDossier.clues.every(clue => clue.operator && clue.url && clue.text), regionDossier.clues)
+const dossierNotes = formatDossierNotes(regionDossier)
+contractCheck('dossier notes name the operators and the region',
+  /档案\/密录线索/.test(dossierNotes) && dossierNotes.includes('缪尔赛思') && dossierNotes.includes('哥伦比亚'),
+  dossierNotes)
+contractCheck('empty dossier still explains itself',
+  /没有找到提及/.test(formatDossierNotes({ region: '谢拉格', operators: ['角峰'], scanned: 1, clues: [] })),
+  formatDossierNotes({ region: '谢拉格', operators: ['角峰'], scanned: 1, clues: [] }))
+
 
 // --- released-operator verification (real names / nicknames) ----------------
 const aliasIndex = loadOperatorAliases()
