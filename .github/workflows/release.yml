@@ -21,6 +21,11 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # 在 npm 侧登记 Trusted Publisher 之前，这条流水线保持休眠：
+    # 到 npmjs.com 的包设置里添加 GitHub Actions（repo + release.yml）后，
+    # 在仓库 Settings → Variables 里加 NPM_TRUSTED_PUBLISHING=true 即可启用。
+    # 未启用时打 tag 不会误触发一个注定 403 的发布任务。
+    if: ${{ vars.NPM_TRUSTED_PUBLISHING == 'true' }}
     steps:
       - uses: actions/checkout@v4
 

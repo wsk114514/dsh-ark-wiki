@@ -84,16 +84,17 @@ arknights
 prts
 ```
 
-### npm 发布（现状：0.10.0 已上线，后续走 OIDC）
+### npm 发布（现状：0.10.0 已上线）
 
-`dsh-ark-wiki@0.10.0` 于 2026-10-21 发布：`npm publish --access public`，凭据是一次性使用的 granular access token（勾选 *Bypass 2FA*）。此后发布不再依赖任何长期 token：
+`dsh-ark-wiki@0.10.0` 于 2026-10-21 发布：`npm publish --access public`，凭据是一次性使用的 granular access token（勾选 *Bypass 2FA*）。**当前默认路径仍是这条本地直发**；OIDC 流程已经写好，但需要先做一次 2FA 配置才会启用：
 
 1. **一次性配置 trusted publisher**（需要过一次交互式 2FA——安全密钥 / passkey；bypass token 不能代替，实测连 `npm trust list` 都返回 403）：
    - 网页：npmjs.com → 包页面 → Settings → **Trusted Publishers** → Add publisher → GitHub Actions，填 repo `wsk114514/dsh-ark-wiki`、workflow 文件名 `release.yml`，environment 留空。
    - 或 CLI：`npx npm@11 trust github dsh-ark-wiki --repo wsk114514/dsh-ark-wiki --file release.yml --allow-publish -y`
-2. **以后发版只打 tag**：`git tag -a v0.10.1 -m "..." && git push origin v0.10.1`。`.github/workflows/release.yml` 用 GitHub Actions 的 OIDC 身份换取短期凭据，执行 `npm publish --provenance`，仓库与本地都不需要 `NPM_TOKEN`。
-3. **时机**：npm 的 2FA-bypass token 直发权限预计 **2027-01** 起完全收紧（之后只允许 staged publish + 人工批准）；OIDC 可信发布不受影响，且能让包页显示 provenance 徽章。
-4. 首次发布用的 bypass token 已经用完，可在 npmjs.com 的 Access Tokens 页面吊销（`.npmrc.bak-20261021` 里的旧 token 同理）。
+2. **启用流水线**：在仓库 Settings → Secrets and variables → Actions → Variables 里加 `NPM_TRUSTED_PUBLISHING = true`。在此之前 `.github/workflows/release.yml` 的 publish job 被 `if:` 守卫住，打 tag 不会误跑一个注定 403 的任务。
+3. **启用后发版只打 tag**：`git tag -a v0.10.1 -m "..." && git push origin v0.10.1`。流水线用 GitHub Actions 的 OIDC 身份换取短期凭据，执行 `npm publish --provenance`，仓库与本地都不需要 `NPM_TOKEN`，包页还会显示 provenance 徽章。
+4. **时机**：npm 的 2FA-bypass token 直发权限预计 **2027-01** 起完全收紧（之后只允许 staged publish + 人工批准），所以 OIDC 不是可选项而是迟早要迁。
+5. 首次发布用的 bypass token 已经用完，可在 npmjs.com 的 Access Tokens 页面吊销（`.npmrc.bak-20261021` 里的旧 token 同理）。
 
 本地那次 `npm publish` 的报错（留作背景）：未勾选 bypass 的 token 会得到
 `403 - Two-factor authentication or granular access token with bypass 2fa enabled is required to publish packages.`；

@@ -5,7 +5,7 @@
 [![CI](https://github.com/wsk114514/dsh-ark-wiki/actions/workflows/ci.yml/badge.svg)](https://github.com/wsk114514/dsh-ark-wiki/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-> **安装方式：npm 或 GitHub 源码**。已在 npm 发布 [`dsh-ark-wiki@0.10.0`](https://www.npmjs.com/package/dsh-ark-wiki)，后续版本由 tag 触发的可信发布（OIDC）自动上线；dsh-plugin.org 收录申请已提交、等待人工核实。
+> **安装方式：npm 或 GitHub 源码**。已在 npm 发布 [`dsh-ark-wiki@0.10.0`](https://www.npmjs.com/package/dsh-ark-wiki)；后续版本先用 `npm publish` 直发，tag 触发的可信发布（OIDC）流水线已备好、登记 Trusted Publisher 后即可启用；dsh-plugin.org 收录申请已提交、等待人工核实。
 
 > **非官方粉丝项目**：与 Hypergryph（鹰角网络）、《明日方舟》官方及 PRTS Wiki 均无隶属关系；所有游戏数据与 wiki 文本的版权归原权利方，本项目仅做实时查询与展示，仅供个人非商业用途。详见[免责声明](#免责声明与权限)。
 
@@ -254,7 +254,7 @@ CI（`.github/workflows/ci.yml`）在每次 push / PR 时跑 `npm ci` + `npm tes
 ## 发布
 
 - GitHub：仓库已公开，`dsh-plugin` topic 已加，tag `v0.10.0` 已推送（`v0.8.0` 起剧情卡司改为全量扫描，`v0.8.2` 起地区信号要求票数与占比，`v0.8.3` 起 BOSS/主线核心整体票数 ×0.95 并固定输出结果表格，`v0.9.0` 起联动剧情只加 2%、首次进池超 4 年的异格 +18%，`v0.10.0` 起按地区附带干员档案/密录线索）。
-- npm：已发布 [`dsh-ark-wiki@0.10.0`](https://www.npmjs.com/package/dsh-ark-wiki)（2026-10-21）。之后的版本由 `v*` tag 触发 [`.github/workflows/release.yml`](.github/workflows/release.yml)，通过 npm **可信发布（OIDC）**自动发布并带 provenance 溯源，仓库与本地都不再需要保存 `NPM_TOKEN`；首次发布用的 bypass token 可以吊销。
+- npm：已发布 [`dsh-ark-wiki@0.10.0`](https://www.npmjs.com/package/dsh-ark-wiki)（2026-10-21）。当前发版方式仍是本地 `npm publish --access public`（凭一次性的 bypass token）；[`.github/workflows/release.yml`](.github/workflows/release.yml) 已写好 tag 触发 + **可信发布（OIDC）+ provenance** 的流水线，登记 Trusted Publisher 并在仓库变量里设 `NPM_TRUSTED_PUBLISHING=true` 后即自动接管，届时不再需要任何 `NPM_TOKEN`。改用 OIDC 的推荐理由是 npm 计划在 2027-01 关闭 bypass token 的直发权限。
 - dsh-plugin.org：收录申请已提交（[dshplugin/dsh-plugin-hub#324](https://github.com/dshplugin/dsh-plugin-hub/issues/324)），等待人工核实时状态为 `unconfirmed`。
 
 完整步骤与已知阻塞见 [RELEASING.md](./RELEASING.md)。
