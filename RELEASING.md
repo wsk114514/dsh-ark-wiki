@@ -84,36 +84,22 @@ arknights
 prts
 ```
 
-### 已知阻塞：npm 发布策略（实测 2026-10-19）
+### npm 发布（现状：0.10.0 已上线，后续走 OIDC）
 
-本机 `npm publish --access public` 返回：
+`dsh-ark-wiki@0.10.0` 于 2026-10-21 发布：`npm publish --access public`，凭据是一次性使用的 granular access token（勾选 *Bypass 2FA*）。此后发布不再依赖任何长期 token：
 
-```
-npm error code E403
-npm error 403 PUT https://registry.npmjs.org/dsh-ark-wiki
-npm error 403 - Two-factor authentication or granular access token with bypass 2fa enabled is required to publish packages.
-```
+1. **一次性配置 trusted publisher**（需要过一次交互式 2FA——安全密钥 / passkey；bypass token 不能代替，实测连 `npm trust list` 都返回 403）：
+   - 网页：npmjs.com → 包页面 → Settings → **Trusted Publishers** → Add publisher → GitHub Actions，填 repo `wsk114514/dsh-ark-wiki`、workflow 文件名 `release.yml`，environment 留空。
+   - 或 CLI：`npx npm@11 trust github dsh-ark-wiki --repo wsk114514/dsh-ark-wiki --file release.yml --allow-publish -y`
+2. **以后发版只打 tag**：`git tag -a v0.10.1 -m "..." && git push origin v0.10.1`。`.github/workflows/release.yml` 用 GitHub Actions 的 OIDC 身份换取短期凭据，执行 `npm publish --provenance`，仓库与本地都不需要 `NPM_TOKEN`。
+3. **时机**：npm 的 2FA-bypass token 直发权限预计 **2027-01** 起完全收紧（之后只允许 staged publish + 人工批准）；OIDC 可信发布不受影响，且能让包页显示 provenance 徽章。
+4. 首次发布用的 bypass token 已经用完，可在 npmjs.com 的 Access Tokens 页面吊销（`.npmrc.bak-20261021` 里的旧 token 同理）。
 
-而 `npm profile enable-2fa auth-and-writes` 返回：
+本地那次 `npm publish` 的报错（留作背景）：未勾选 bypass 的 token 会得到
+`403 - Two-factor authentication or granular access token with bypass 2fa enabled is required to publish packages.`；
+新账号也不能再登记 TOTP（`npm profile enable-2fa auth-and-writes` → `Adding a new TOTP ... is no longer supported`），只能在 `https://www.npmjs.com/settings/<user>/tfa` 注册安全密钥。
 
-```
-npm error 404 Not Found - POST https://registry.npmjs.org/-/npm/v1/user
-npm error 404 - Adding a new TOTP (time-based one-time password) two-factor authentication is no longer supported.
-npm error 404   Please visit https://www.npmjs.com/settings/<user>/tfa to add a security key 2FA method instead.
-```
-
-即：**新账号已不能再用验证器 App（TOTP）加 2FA，发布又强制要求 2FA**。当前可走的发布路径（若以后要上架 npm）：
-
-1. 在 `https://www.npmjs.com/settings/<user>/tfa` 注册安全密钥（Windows Hello / passkey / USB key）。
-2. 装 npm CLI **≥ 11.15.0**（[staged publishing](https://github.blog/changelog/2026-05-22-staged-publishing-and-new-install-time-controls-for-npm/) 的最低版本）。
-3. `npm stage publish --access public` 把 tarball 送进 stage 队列，再在 npmjs.com（或 CLI）用安全密钥批准；2026-10 起 staged publishing 也支持新建包。
-4. 备选：granular access token 勾选 *Bypass 2FA*（服务端报错里把它列为可用方式），但 npm 已开始收紧这类 token 的直发权限。
-
-在 npm 发布之前，用 GitHub 源码安装分发：
-
-```powershell
-dsh plugin --profile web add github:wsk114514/dsh-ark-wiki
-```
+仍可用 GitHub 源码安装（适合跟最新提交）：`dsh plugin --profile web add github:wsk114514/dsh-ark-wiki`。
 
 **GitHub 源安装实测（2026-10-19）**：在空目录 `npm i github:wsk114514/dsh-ark-wiki` → 22s 装完 25 个包，
 随后 Node 直接加载该包：导出 `name`、`inject: ['tools']`、注册 1 个 `ark_wiki_lookup`，

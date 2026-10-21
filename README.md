@@ -1,11 +1,11 @@
-﻿# dsh-ark-wiki
+# dsh-ark-wiki
 
 为 DSH 提供两个模型可调用的工具：`ark_wiki_lookup` 查询 PRTS Wiki 的《明日方舟》数据（干员及其技能/天赋/档案/密录、物品、关卡、剧情、干员出场表与「泰拉大典」世界观考据），返回结构化结果，由模型据此作答；`ark_banner_predict` 默认根据剧情卡司快照做**概率性**的新角色 / 异格候选预测（剧情里反复出现但没进过卡池的人物、长期无新剧情的干员异格），也可按 PRTS「卡池一览」的历史排期预测下期卡池与 UP 干员；两者都带置信度、理由与信号。
 
 [![CI](https://github.com/wsk114514/dsh-ark-wiki/actions/workflows/ci.yml/badge.svg)](https://github.com/wsk114514/dsh-ark-wiki/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-> **目前的分发方式只有 GitHub 源码安装**：npm 尚未发布（2026 年的 2FA 政策，见 [RELEASING.md](RELEASING.md)），dsh-plugin.org 收录申请已提交、等待人工核实。
+> **安装方式：npm 或 GitHub 源码**。已在 npm 发布 [`dsh-ark-wiki@0.10.0`](https://www.npmjs.com/package/dsh-ark-wiki)，后续版本由 tag 触发的可信发布（OIDC）自动上线；dsh-plugin.org 收录申请已提交、等待人工核实。
 
 > **非官方粉丝项目**：与 Hypergryph（鹰角网络）、《明日方舟》官方及 PRTS Wiki 均无隶属关系；所有游戏数据与 wiki 文本的版权归原权利方，本项目仅做实时查询与展示，仅供个人非商业用途。详见[免责声明](#免责声明与权限)。
 
@@ -19,9 +19,9 @@ dsh plugin --profile web add github:wsk114514/dsh-ark-wiki
 # 2. 把包名 "dsh-ark-wiki" 写进该 profile package.json 的 dsh.profile.bundles 数组
 ```
 
-### 方式二：npm
+### 方式二：npm（推荐）
 
-包**尚未发布到 npm**（npm 2026 年起要求发布者使用安全密钥 / 2FA，见 [RELEASING.md](RELEASING.md) 的「已知阻塞」一节）。发布后改为：
+包已发布到 npm，直接安装即可：
 
 ```bash
 dsh plugin --profile web add dsh-ark-wiki
@@ -254,7 +254,7 @@ CI（`.github/workflows/ci.yml`）在每次 push / PR 时跑 `npm ci` + `npm tes
 ## 发布
 
 - GitHub：仓库已公开，`dsh-plugin` topic 已加，tag `v0.10.0` 已推送（`v0.8.0` 起剧情卡司改为全量扫描，`v0.8.2` 起地区信号要求票数与占比，`v0.8.3` 起 BOSS/主线核心整体票数 ×0.95 并固定输出结果表格，`v0.9.0` 起联动剧情只加 2%、首次进池超 4 年的异格 +18%，`v0.10.0` 起按地区附带干员档案/密录线索）。
-- npm：**未发布**。npm 2026 年起要求发布者使用安全密钥 2FA，而新账号已无法登记 TOTP（`npm profile enable-2fa` 返回 E404）；在满足该条件前只走 GitHub 源码安装。
+- npm：已发布 [`dsh-ark-wiki@0.10.0`](https://www.npmjs.com/package/dsh-ark-wiki)（2026-10-21）。之后的版本由 `v*` tag 触发 [`.github/workflows/release.yml`](.github/workflows/release.yml)，通过 npm **可信发布（OIDC）**自动发布并带 provenance 溯源，仓库与本地都不再需要保存 `NPM_TOKEN`；首次发布用的 bypass token 可以吊销。
 - dsh-plugin.org：收录申请已提交（[dshplugin/dsh-plugin-hub#324](https://github.com/dshplugin/dsh-plugin-hub/issues/324)），等待人工核实时状态为 `unconfirmed`。
 
 完整步骤与已知阻塞见 [RELEASING.md](./RELEASING.md)。

@@ -1,0 +1,47 @@
+name: Release
+
+# tag 触发的发布流水线：通过 npm 可信发布（OIDC trusted publishing）发布，
+# 不需要在仓库里保存 NPM_TOKEN。npm 在 2026 年 7 月起已开始收紧 2FA-bypass
+# token 的发布权限（预计 2027 年 1 月完全改为「暂存 + 人工批准」），
+# 因此这里用 GitHub Actions 的 OIDC 身份直接换取短期发布凭据。
+#
+# 前置条件（只需做一次，见 RELEASING.md）：在 npmjs.com 的包设置里
+# 「Trusted Publishers」添加 GitHub Actions：repo wsk114514/dsh-ark-wiki，
+# workflow 文件名 release.yml。
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  id-token: write # 可信发布（OIDC）必需
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: 'https://registry.npmjs.org'
+
+      # 可信发布需要 npm >= 11.5；Node 24 自带版本足够新，这里仍然显式升级，
+      # 避免 runner 镜像版本漂移。
+      - name: Upgrade npm
+        run: npm install -g npm@^12
+
+      - run: npm ci
+
+      - name: Verify tag matches package.json
+        run: |
+          node -e "const v = require('./package.json').version; const t = process.env.GITHUB_REF_NAME.replace(/^v/, ''); if (v !== t) { console.error('tag ' + t + ' != package.json ' + v); process.exit(1) }"
+
+      - name: Offline contract tests
+        run: node tools/harness.mjs offline
+
+      - name: Publish with provenance
+        run: npm publish --access public --provenance
