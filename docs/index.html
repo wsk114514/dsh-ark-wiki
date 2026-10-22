@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dsh-ark-wiki · 预测演示</title>
+<meta name="description" content="dsh-ark-wiki 的真实输出快照：查询 PRTS Wiki，并基于 1495 段剧情卡司统计预测下一个进卡池的角色。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎲</text></svg>">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #101319;
+    --panel: #171c24;
+    --panel-2: #1d232d;
+    --line: #2a323f;
+    --text: #e7eaf0;
+    --muted: #9aa6b8;
+    --accent: #d8a13a;
+    --high: #5cc98a;
+    --medium: #d8a13a;
+    --low: #8a94a6;
+    --new: #6aa9ff;
+    --alter: #c58cff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  a { color: var(--accent); }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 48px 20px 72px; }
+  header.hero { border-bottom: 1px solid var(--line); padding-bottom: 28px; margin-bottom: 36px; }
+  .eyebrow { color: var(--accent); font-size: 12px; letter-spacing: .18em; text-transform: uppercase; }
+  h1 { font-size: 30px; line-height: 1.3; margin: 10px 0 12px; }
+  .lede { color: var(--muted); max-width: 720px; margin: 0 0 18px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--muted); font-size: 13px; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; }
+  code { background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; font-size: 13px; }
+  section.block { margin: 0 0 48px; }
+  .block-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+  h2 { font-size: 21px; margin: 0; }
+  .hint { color: var(--muted); font-size: 13px; }
+  .candidates { display: grid; gap: 12px; }
+  .candidate { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+  .candidate-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .rank { color: var(--accent); font-family: ui-monospace, monospace; font-size: 13px; opacity: .8; }
+  h3 { font-size: 18px; margin: 0; }
+  .kind, .confidence { font-size: 12px; border-radius: 999px; padding: 2px 10px; border: 1px solid currentColor; }
+  .kind.new { color: var(--new); }
+  .kind.alter { color: var(--alter); }
+  .confidence.high { color: var(--high); }
+  .confidence.medium { color: var(--medium); }
+  .confidence.low { color: var(--low); }
+  .reason { margin: 10px 0 0; color: #cfd6e2; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .tag { font-size: 12px; color: var(--muted); background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+  .panels { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-top: 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+  .panel h4 { margin: 0 0 10px; font-size: 14px; color: var(--muted); font-weight: 600; }
+  .weak { font-weight: 400; color: var(--low); font-size: 12px; }
+  ul.basis, ul.clues { margin: 0; padding-left: 18px; }
+  ul.basis li { margin: 0 0 6px; color: #cfd6e2; font-size: 13px; }
+  ul.clues { list-style: none; padding: 0; }
+  ul.clues li { border-top: 1px dashed var(--line); padding: 8px 0; font-size: 13px; color: #cfd6e2; }
+  ul.clues li:first-child { border-top: 0; }
+  .clue-op { color: var(--accent); }
+  .clue-src { color: var(--low); margin: 0 6px; font-size: 12px; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; text-align: center; }
+  .stat .num { display: block; font-size: 24px; font-family: ui-monospace, monospace; color: var(--accent); }
+  .stat .label { color: var(--muted); font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; }
+  tr:last-child td { border-bottom: 0; }
+  .note, .empty { color: var(--low); font-size: 13px; }
+  footer { border-top: 1px solid var(--line); margin-top: 24px; padding-top: 24px; color: var(--muted); font-size: 13px; }
+  footer p { margin: 0 0 8px; }
+  @media (max-width: 560px) {
+    h1 { font-size: 24px; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    table { display: block; overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">dsh-ark-wiki · demo</div>
+    <h1>在 DSH 里查《明日方舟》，顺手预测下一个进卡池的人</h1>
+    <p class="lede">下面不是截图，是插件真实输出的静态快照：查 PRTS Wiki 的干员 / 剧情 / 关卡 / 泰拉大典，并用 2019 年以来 1495 段剧情的卡司统计给出概率性预测。每条结论都带置信度、依据，以及「它可能错在哪」。</p>
+    <div class="meta">
+      <span>生成于 2026-10-22</span>
+      <span>剧情数据快照：2026-10-20</span>
+      <span><a href="https://github.com/wsk114514/dsh-ark-wiki">GitHub</a></span>
+      <span><a href="https://www.npmjs.com/package/dsh-ark-wiki">npm</a></span>
+      <span><a href="https://prts.wiki">PRTS Wiki</a></span>
+    </div>
+  </header>
+
+  <section class="block" id="install">
+    <div class="block-head"><h2>装上它</h2></div>
+    <p><code>dsh plugin --profile web add dsh-ark-wiki</code></p>
+    <p class="note">需要 DeepSeek Harness（DSH）。装好后直接问：「下个版本回阿戈尔的话，谁最可能实装？」「克莱门莎最早在哪个剧情出场？」</p>
+  </section>
+
+  
+  <section class="block" id="kjerag">
+    <div class="block-head">
+      <h2>卡西米尔：下个版本会出哪些新角色？</h2>
+      <span class="hint">hint：卡西米尔下个版本会出哪些新角色</span>
+    </div>
+    <div class="candidates">
+    <article class="candidate">
+      <div class="candidate-head">
+        <span class="rank">01</span>
+        <h3>光头马丁</h3>
+        <span class="kind new">新角色</span>
+        <span class="confidence medium">置信度 中</span>
+      </div>
+      <p class="reason">剧情中共出场 28 段（主线 0 段 / 活动 28 段）；最近一次出现在 2021-11-01（约 5.0 年前）；与「卡西米尔」剧情高度相关（该地区占其出场票的 74%），符合“新地区版本带来本地角色”的历史规律；尚无独立词条页，身份靠台词统计推定；尚未作为可操作干员实装。</p>
+      <div class="tags"><span class="tag">剧情高频出现</span><span class="tag">地区吻合</span></div>
+    </article>
+    <article class="candidate">
+      <div class="candidate-head">
+        <span class="rank">02</span>
+        <h3>发言人马克维茨</h3>
+        <span class="kind new">新角色</span>
+        <span class="confidence medium">置信度 中</span>
+      </div>
+      <p class="reason">剧情中共出场 20 段（主线 0 段 / 活动 20 段）；最近一次出现在 2021-11-01（约 5.0 年前）；与「卡西米尔」剧情高度相关（该地区占其出场票的 71%），符合“新地区版本带来本地角色”的历史规律；尚无独立词条页，身份靠台词统计推定；尚未作为可操作干员实装。</p>
+      <div class="tags"><span class="tag">剧情高频出现</span><span class="tag">地区吻合</span></div>
+    </article>
+    <article class="candidate">
+      <div class="candidate-head">
+        <span class="rank">03</span>
+        <h3>发言人麦基</h3>
+        <span class="kind new">新角色</span>
+        <span class="confidence medium">置信度 中</span>
+      </div>
+      <p class="reason">剧情中共出场 19 段（主线 0 段 / 活动 19 段）；最近一次出现在 2021-11-01（约 5.0 年前）；与「卡西米尔」剧情高度相关（该地区占其出场票的 73%），符合“新地区版本带来本地角色”的历史规律；尚无独立词条页，身份靠台词统计推定；尚未作为可操作干员实装。</p>
+      <div class="tags"><span class="tag">剧情高频出现</span><span class="tag">地区吻合</span></div>
+    </article>
+    <article class="candidate">
+      <div class="candidate-head">
+        <span class="rank">04</span>
+        <h3>鞭刃</h3>
+        <span class="kind alter">异格</span>
+        <span class="confidence medium">置信度 中</span>
+      </div>
+      <p class="reason">异格候选：剧情出场 36 次（主线 0 / 活动 34）；已 约 2.9 年前 没有新剧情，符合“老角色长期无新剧情 → 异格实装”的历史规律；所属地区与本次线索「卡西米尔」吻合；首次进池于 2020-10-15（6.0 年），超过 4 年，按规则提高异格概率约 18%（上限 20%）。</p>
+      <div class="tags"><span class="tag">长期无新剧情</span><span class="tag">地区吻合</span><span class="tag">首次进池已超 4 年（+18%）</span></div>
+    </article></div>
+    <div class="panels">
+      <div class="panel">
+        <h4>依据（prediction_basis）</h4>
+        <ul class="basis"><li>剧情卡司数据：扫描 1495 段 2019-01-01 起的剧情，识别 767 名未实装/待确认人物、88 名异格候选</li><li>数据生成于 2026-10-20，之后上线的新剧情未统计</li><li>地区线索：卡西米尔</li><li>地区信号：要求该地区剧情票 ≥5 且占该人物出场票的 50% 以上，避免同场其他阵营的干员「带票」</li><li>实装校验：候选已对照 PRTS 干员一览（434 名干员）复核代号与本名/外号</li><li>评分口径：出场段数按 0.18/段计（封顶 3.0），主线戏份额外加权，纯活动高频角色补偿加分</li><li>BOSS 模板或主线核心等「叙事分量极重」的角色整体票数 ×0.95（下调 5%，官方更可能将其留作大型活动主角）</li><li>联动加成：联动剧情（源石尘行动、水晶箭行动、无忧梦呓）与泰拉主线的排期关系弱、参考价值较小，在其中出场过的角色按规则 +2%，未出场角色不扣分</li><li>异格加权：首次进池时间超过 4 年（约 1460 天）的干员，异格概率按规则提高约 18%（上限 20%）</li><li>434/434 名干员有「上线时间」记录，缺记录者不加权</li><li>实装校验：候选已在 PRTS「干员一览」范围内按标题检索确认是否已有同名干员</li></ul>
+      </div>
+      <div class="panel">
+        <h4>不确定性（caveats）</h4>
+        <ul class="basis"><li>新角色是否上线由官方宣传与开发排期决定，剧情出场只能作为弱信号，不构成上线承诺。</li><li>台词出场次数只是“剧情分量”的近似值，无法量化社区人气；呼声高但剧情少的角色可能被低估。</li><li>真实姓名/化名依赖 PRTS 页面识别（干员页“客观履历”），仍有漏判：无独立页面的重要人物以“待确认”形式保留。</li><li>已实装干员与已异格角色均已排除，往期限定干员只能在对应限定寻访中兑换，不会作为新角色候选。</li><li>实装校验：查丝汀娜＝干员「远牙」、格蕾纳蒂＝干员「灰毫」、艾沃娜＝干员「野鬃」，这些是本名/外号对应已推出的干员，已从候选中排除。</li><li>实装校验：玛嘉烈＝干员「临光」（页面「玛嘉烈・临光」），这些候选对应已推出的干员，已从候选中排除。</li></ul>
+      </div>
+    </div>
+    <div class="panel">
+      <h4>档案 / 密录线索 <span class="weak">弱信号，不参与排序</span></h4>
+      <ul class="clues">
+        <li>
+          <span class="clue-op">玛恩纳</span>
+          <span class="clue-src">档案·档案资料二</span>
+          <span class="clue-text">「登上罗德岛本舰签订协议后不久，他便重新动身返回卡西米尔，但一直没有前往罗德岛驻卡瓦莱利亚基办事处报到，并以书信方式辞去了自己原本在大骑士领内的公司职务。」</span>
+        </li>
+        <li>
+          <span class="clue-op">玛恩纳</span>
+          <span class="clue-src">档案·档案资料四</span>
+          <span class="clue-text">「相较于当时广为流传的猜测，即临光家次子将加入监正会或骑士协会，随后从养病的西里尔手上接过临光家长骑的封号，玛恩纳实际做出的选择或许受到某些外界条件影响，也或许包含着自己对卡西米尔失望的态度。」</span>
+        </li>
+        <li>
+          <span class="clue-op">焰尾</span>
+          <span class="clue-src">档案·档案资料四</span>
+          <span class="clue-text">「如果没有被感染，没有被迫走上这条道路，也许红松骑士团的成员们，都会以另一副面貌生活在卡西米尔。」</span>
+        </li>
+        <li>
+          <span class="clue-op">焰尾</span>
+          <span class="clue-src">档案·客观履历</span>
+          <span class="clue-text">「卡西米尔的感染者骑士，同时也是自发组建的感染者骑士团“红松”的实际领袖。」</span>
+        </li>
+        <li>
+          <span class="clue-op">远牙</span>
+          <span class="clue-src">档案·客观履历</span>
+          <span class="clue-text">「“远牙”骑士查丝汀娜，于特锦赛上打响名气，目前隶属于由感染者骑士组建的红松骑士团，是一名在卡西米尔拥有相当程度知名度的感染者骑士。」</span>
+        </li>
+      </ul>
+    </div>
+    
+  </section>
+
+  <section class="block" id="columbia">
+    <div class="block-head">
+      <h2>哥伦比亚：下一个可能角色</h2>
+      <span class="hint">hint：哥伦比亚地区的下一个可能角色</span>
+    </div>
+    <div class="candidates">
+    <article class="candidate">
+      <div class="candidate-head">
+        <span class="rank">01</span>
+        <h3>埃琳娜</h3>
+        <span class="kind new">新角色</span>
+        <span class="confidence medium">置信度 中</span>
+      </div>
+      <p class="reason">剧情中共出场 27 段（主线 0 段 / 活动 27 段）；最近一次出现在 2025-11-01（约 12 个月前）；与「哥伦比亚」剧情高度相关（该地区占其出场票的 84%），符合“新地区版本带来本地角色”的历史规律；尚无独立词条页，身份靠台词统计推定；尚未作为可操作干员实装。</p>
+      <div class="tags"><span class="tag">剧情高频出现</span><span class="tag">地区吻合</span></div>
+    </article>
+    <article class="candidate">
+      <div class="candidate-head">
+        <span class="rank">02</span>
+        <h3>斐尔迪南</h3>
+        <span class="kind new">新角色</span>
+        <span class="confidence medium">置信度 中</span>
+      </div>
+      <p class="reason">剧情中共出场 28 段（主线 0 段 / 活动 28 段）；最近一次出现在 2025-12-05（约 11 个月前）；与「哥伦比亚」剧情高度相关（该地区占其出场票的 84%），符合“新地区版本带来本地角色”的历史规律；尚无独立词条页，身份靠台词统计推定；尚未作为可操作干员实装。</p>
+      <div class="tags"><span class="tag">剧情高频出现</span><span class="tag">地区吻合</span></div>
+    </article>
+    <article class="candidate">
+      <div class="candidate-head">
+        <span class="rank">03</span>
+        <h3>费尔南</h3>
+        <span class="kind new">新角色</span>
+        <span class="confidence medium">置信度 中</span>
+      </div>
+      <p class="reason">剧情中共出场 16 段（主线 0 段 / 活动 16 段）；最近一次出现在 2025-12-05（约 11 个月前）；与「哥伦比亚」剧情高度相关（该地区占其出场票的 95%），符合“新地区版本带来本地角色”的历史规律；尚无独立词条页，身份靠台词统计推定；尚未作为可操作干员实装。</p>
+      <div class="tags"><span class="tag">剧情高频出现</span><span class="tag">地区吻合</span></div>
+    </article>
+    <article class="candidate">
+      <div class="candidate-head">
+        <span class="rank">04</span>
+        <h3>芙兰卡</h3>
+        <span class="kind alter">异格</span>
+        <span class="confidence medium">置信度 中</span>
+      </div>
+      <p class="reason">异格候选：剧情出场 61 次（主线 24 / 活动 30）；已 约 3.1 年前 没有新剧情，符合“老角色长期无新剧情 → 异格实装”的历史规律；所属地区与本次线索「哥伦比亚」吻合；首次进池于 2019-04-30（7.5 年），超过 4 年，按规则提高异格概率约 18%（上限 20%）；在联动剧情「源石尘行动」中出场过（共 12 段），联动剧情参考价值较小，按规则仅小幅提高约 2%。</p>
+      <div class="tags"><span class="tag">长期无新剧情</span><span class="tag">地区吻合</span><span class="tag">首次进池已超 4 年（+18%）</span><span class="tag">联动出场（+2%）</span></div>
+    </article></div>
+    <div class="panels">
+      <div class="panel">
+        <h4>依据（prediction_basis）</h4>
+        <ul class="basis"><li>剧情卡司数据：扫描 1495 段 2019-01-01 起的剧情，识别 767 名未实装/待确认人物、88 名异格候选</li><li>数据生成于 2026-10-20，之后上线的新剧情未统计</li><li>地区线索：哥伦比亚</li><li>地区信号：要求该地区剧情票 ≥5 且占该人物出场票的 50% 以上，避免同场其他阵营的干员「带票」</li><li>实装校验：候选已对照 PRTS 干员一览（434 名干员）复核代号与本名/外号</li><li>评分口径：出场段数按 0.18/段计（封顶 3.0），主线戏份额外加权，纯活动高频角色补偿加分</li><li>BOSS 模板或主线核心等「叙事分量极重」的角色整体票数 ×0.95（下调 5%，官方更可能将其留作大型活动主角）</li><li>联动加成：联动剧情（源石尘行动、水晶箭行动、无忧梦呓）与泰拉主线的排期关系弱、参考价值较小，在其中出场过的角色按规则 +2%，未出场角色不扣分</li><li>异格加权：首次进池时间超过 4 年（约 1460 天）的干员，异格概率按规则提高约 18%（上限 20%）</li><li>434/434 名干员有「上线时间」记录，缺记录者不加权</li><li>实装校验：候选已在 PRTS「干员一览」范围内按标题检索确认是否已有同名干员</li></ul>
+      </div>
+      <div class="panel">
+        <h4>不确定性（caveats）</h4>
+        <ul class="basis"><li>新角色是否上线由官方宣传与开发排期决定，剧情出场只能作为弱信号，不构成上线承诺。</li><li>台词出场次数只是“剧情分量”的近似值，无法量化社区人气；呼声高但剧情少的角色可能被低估。</li><li>真实姓名/化名依赖 PRTS 页面识别（干员页“客观履历”），仍有漏判：无独立页面的重要人物以“待确认”形式保留。</li><li>已实装干员与已异格角色均已排除，往期限定干员只能在对应限定寻访中兑换，不会作为新角色候选。</li><li>实装校验：海伦娜＝干员「冰酿」，这些是本名/外号对应已推出的干员，已从候选中排除。</li></ul>
+      </div>
+    </div>
+    <div class="panel">
+      <h4>档案 / 密录线索 <span class="weak">弱信号，不参与排序</span></h4>
+      <ul class="clues">
+        <li>
+          <span class="clue-op">麦哲伦</span>
+          <span class="clue-src">密录·生生不息 · 第1话</span>
+          <span class="clue-text">「爷爷，这个歌词是什么意思呢？在哥伦比亚的外面，还有这样的地方吗？那里真的可以泼出去热水，立马就变成冰吗？」</span>
+        </li>
+        <li>
+          <span class="clue-op">麦哲伦</span>
+          <span class="clue-src">密录·生生不息 · 第1话</span>
+          <span class="clue-text">「我在哥伦比亚刚结束一次探险，原本想要回本舰，但药物不够，就先完成了办事处的任务换了一些。」</span>
+        </li>
+        <li>
+          <span class="clue-op">谬因</span>
+          <span class="clue-src">档案·客观履历</span>
+          <span class="clue-text">「谬因，哥伦比亚人，常居玻利瓦尔。」</span>
+        </li>
+        <li>
+          <span class="clue-op">谬因</span>
+          <span class="clue-src">档案·客观履历</span>
+          <span class="clue-text">「原哥伦比亚卢米内斯大学（拉乌尼达分校）副教授，在应用源石学、信息与计算科学领域造诣颇深。」</span>
+        </li>
+        <li>
+          <span class="clue-op">缪尔赛思</span>
+          <span class="clue-src">档案·档案资料二</span>
+          <span class="clue-text">「据部分从哥伦比亚返回本舰的干员表示，缪尔赛思小姐在“为罗德岛相关人员提供帮助”这件事上很是热情，除了一些必要的支持文件与担保材料，她还给众人送来了一本厚厚的攻略笔记，内容涵盖“值得体验的假日俱乐部”“值得一去的春夏秀场”“值得入手的小众时…」</span>
+        </li>
+      </ul>
+    </div>
+    
+  </section>
+  
+  <section class="block" id="lookup">
+    <div class="block-head">
+      <h2>查资料：克莱门莎 的登场时间线</h2>
+      <span class="hint">query：克莱门莎 出场</span>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="num">27</span><span class="label">总登场</span></div>
+      <div class="stat"><span class="num">0</span><span class="label">主线</span></div>
+      <div class="stat"><span class="num">27</span><span class="label">活动</span></div>
+      <div class="stat"><span class="num">0</span><span class="label">密录</span></div>
+    </div>
+    <p class="reason">最早登场：<strong>BP-ST-1 浪潮守望者</strong>
+      （2024-06-05）；
+      共 27 条记录，下表只列前 10 条。</p>
+    <table>
+      <thead><tr><th>日期</th><th>剧情</th><th>类型</th></tr></thead>
+      <tbody>
+    <tr>
+      <td class="mono">2024-06-05</td>
+      <td>BP-ST-1 浪潮守望者</td>
+      <td class="mono">活动剧情</td>
+    </tr>
+    <tr>
+      <td class="mono">2024-06-05</td>
+      <td>BP-1 第一次接触 行动后</td>
+      <td class="mono">活动剧情</td>
+    </tr>
+    <tr>
+      <td class="mono">2024-06-05</td>
+      <td>BP-2 评议式迎接 行动前</td>
+      <td class="mono">活动剧情</td>
+    </tr>
+    <tr>
+      <td class="mono">2024-06-05</td>
+      <td>BP-2 评议式迎接 行动后</td>
+      <td class="mono">活动剧情</td>
+    </tr>
+    <tr>
+      <td class="mono">2024-06-05</td>
+      <td>BP-3 如海雪纷散 行动前</td>
+      <td class="mono">活动剧情</td>
+    </tr>
+    <tr>
+      <td class="mono">2024-06-05</td>
+      <td>BP-4 牺牲与代价 行动前</td>
+      <td class="mono">活动剧情</td>
+    </tr>
+    <tr>
+      <td class="mono">2024-06-05</td>
+      <td>BP-6 阿戈尔失格 行动前</td>
+      <td class="mono">活动剧情</td>
+    </tr>
+    <tr>
+      <td class="mono">2024-06-05</td>
+      <td>BP-7 从历史中来 行动前</td>
+      <td class="mono">活动剧情</td>
+    </tr>
+    <tr>
+      <td class="mono">2024-06-05</td>
+      <td>BP-7 从历史中来 行动后</td>
+      <td class="mono">活动剧情</td>
+    </tr>
+    <tr>
+      <td class="mono">2024-06-05</td>
+      <td>BP-8 “何谓存续？” 行动前</td>
+      <td class="mono">活动剧情</td>
+    </tr></tbody>
+    </table>
+  </section>
+
+  <footer>
+    <p><strong>这是概率性预测，不是官方排期。</strong>新角色是否上线由官方宣传与开发排期决定；剧情出场只是弱信号，<code>confidence: high</code> 只表示信号共振，不保证命中。</p>
+    <p>数据版权归 Hypergryph / 《明日方舟》官方与 PRTS Wiki 所有；本页仅为个人非商业查询演示，与上述各方无隶属关系。预测口径、已知限制与数据来源见 <a href="https://github.com/wsk114514/dsh-ark-wiki#已知限制">README</a>。</p>
+    <p>本页由 <code>tools/build-demo.mjs</code> 调用插件自身代码生成，重新运行即可刷新快照。</p>
+  </footer>
+</div>
+</body>
+</html>

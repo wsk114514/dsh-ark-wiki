@@ -8,6 +8,8 @@
 [![npm](https://img.shields.io/npm/v/dsh-ark-wiki.svg)](https://www.npmjs.com/package/dsh-ark-wiki)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
+**在线演示**：[wsk114514.github.io/dsh-ark-wiki](https://wsk114514.github.io/dsh-ark-wiki/) —— 真实输出的静态快照，不装也能看它长什么样。
+
 ```bash
 dsh plugin --profile web add dsh-ark-wiki   # npm；源码安装见「安装」
 ```
@@ -229,9 +231,13 @@ dsh-ark-wiki/
 │   └── operator-aliases.json # 干员本名/外号映射（实装校验用，脚本生成）
 ├── tools/
 │   ├── harness.mjs      # 本地契约 + 数据端到端测试（node tools/harness.mjs live）
+│   ├── build-demo.mjs   # 跑两例真实预测 + 一例查询，生成 docs/index.html 静态演示（npm run demo）
 │   ├── build-story-cast.mjs    # 扫描剧情正文统计说话者 → data/story-cast.json
 │   ├── build-story-aliases.mjs # 把化名/真名归并回已实装干员，标注敌人/剧情角色
 │   └── build-operator-aliases.mjs # 从干员页「客观履历」提取本名/外号 → data/operator-aliases.json
+├── docs/
+│   ├── index.html       # GitHub Pages 静态演示页（npm run demo 生成，不要手改）
+│   └── .nojekyll        # 让 Pages 原样发布，不走 Jekyll
 ├── README.md
 ├── LICENSE              # 代码 MIT；数据版权归属见文件末尾
 └── RELEASING.md         # 发布清单（npm + GitHub topic + 收录站提交）
@@ -245,6 +251,7 @@ npm test                         # = node tools/harness.mjs offline，不联网
 node tools/harness.mjs offline   # 不联网：schema 编译、参数校验、apply(ctx) 生命周期、effect 清理
 node tools/harness.mjs live      # 联网：24 个 lookup 真实查询 + 9 个卡池预测用例（5 排期 + 4 新角色/异格）+ 期望断言（技能/天赋/档案/密录/剧情/干员出场/泰拉大典/卡池/剧情信号），输出 allValid
 npm run data:cast                # 联网重建剧情卡司与别名快照（story-cast + story-aliases + operator-aliases，约 5–8 分钟）
+npm run demo                     # 联网跑两例真实预测 + 一例查询，重新生成 docs/index.html 静态演示
 $env:HARNESS_SUMMARY='1'; node tools/harness.mjs live              # 只打印「allValid + 每例耗时/状态/失败标记」
 $env:HARNESS_REPORT='tools/report.json'; node tools/harness.mjs live  # 额外落盘完整 JSON（绕开 PowerShell 5.1 重定向写 UTF-16 的坑）
 ```
@@ -285,8 +292,8 @@ CI（`.github/workflows/ci.yml`）在每次 push / PR 时跑 `npm ci` + `npm tes
 
 ## 发布
 
-- GitHub：仓库已公开，`dsh-plugin` topic 已加，tag `v0.10.0` 已推送（`v0.8.0` 起剧情卡司改为全量扫描，`v0.8.2` 起地区信号要求票数与占比，`v0.8.3` 起 BOSS/主线核心整体票数 ×0.95 并固定输出结果表格，`v0.9.0` 起联动剧情只加 2%、首次进池超 4 年的异格 +18%，`v0.10.0` 起按地区附带干员档案/密录线索）。
-- npm：已发布 [`dsh-ark-wiki@0.10.0`](https://www.npmjs.com/package/dsh-ark-wiki)（2026-10-21）。当前发版方式仍是本地 `npm publish --access public`（凭一次性的 bypass token）；[`.github/workflows/release.yml`](.github/workflows/release.yml) 已写好 tag 触发 + **可信发布（OIDC）+ provenance** 的流水线，登记 Trusted Publisher 并在仓库变量里设 `NPM_TRUSTED_PUBLISHING=true` 后即自动接管，届时不再需要任何 `NPM_TOKEN`。改用 OIDC 的推荐理由是 npm 计划在 2027-01 关闭 bypass token 的直发权限。
+- GitHub：仓库已公开，`dsh-plugin` topic 已加，tag `v0.10.1` 已推送（`v0.8.0` 起剧情卡司改为全量扫描，`v0.8.2` 起地区信号要求票数与占比，`v0.8.3` 起 BOSS/主线核心整体票数 ×0.95 并固定输出结果表格，`v0.9.0` 起联动剧情只加 2%、首次进池超 4 年的异格 +18%，`v0.10.0` 起按地区附带干员档案/密录线索，`v0.10.1` 起补位重跑不再让「识别 N 名」数字漂移）。
+- npm：已发布 [`dsh-ark-wiki@0.10.1`](https://www.npmjs.com/package/dsh-ark-wiki)（2026-10-22）。当前发版方式仍是本地 `npm publish --access public`（凭一次性的 bypass token）；[`.github/workflows/release.yml`](.github/workflows/release.yml) 已写好 tag 触发 + **可信发布（OIDC）+ provenance** 的流水线，登记 Trusted Publisher 并在仓库变量里设 `NPM_TRUSTED_PUBLISHING=true` 后即自动接管，届时不再需要任何 `NPM_TOKEN`。改用 OIDC 的推荐理由是 npm 计划在 2027-01 关闭 bypass token 的直发权限。
 - dsh-plugin.org：收录申请已提交（[dshplugin/dsh-plugin-hub#324](https://github.com/dshplugin/dsh-plugin-hub/issues/324)），等待人工核实时状态为 `unconfirmed`。
 
 完整步骤与已知阻塞见 [RELEASING.md](./RELEASING.md)。
