@@ -292,8 +292,8 @@ CI（`.github/workflows/ci.yml`）在每次 push / PR 时跑 `npm ci` + `npm tes
 
 ## 发布
 
-- GitHub：仓库已公开，`dsh-plugin` topic 已加，tag `v0.10.1` 已推送（`v0.8.0` 起剧情卡司改为全量扫描，`v0.8.2` 起地区信号要求票数与占比，`v0.8.3` 起 BOSS/主线核心整体票数 ×0.95 并固定输出结果表格，`v0.9.0` 起联动剧情只加 2%、首次进池超 4 年的异格 +18%，`v0.10.0` 起按地区附带干员档案/密录线索，`v0.10.1` 起补位重跑不再让「识别 N 名」数字漂移）。
-- npm：已发布 [`dsh-ark-wiki@0.10.1`](https://www.npmjs.com/package/dsh-ark-wiki)（2026-10-22）。当前发版方式仍是本地 `npm publish --access public`（凭一次性的 bypass token）；[`.github/workflows/release.yml`](.github/workflows/release.yml) 已写好 tag 触发 + **可信发布（OIDC）+ provenance** 的流水线，登记 Trusted Publisher 并在仓库变量里设 `NPM_TRUSTED_PUBLISHING=true` 后即自动接管，届时不再需要任何 `NPM_TOKEN`。改用 OIDC 的推荐理由是 npm 计划在 2027-01 关闭 bypass token 的直发权限。
+- GitHub：仓库已公开，`dsh-plugin` topic 已加，tag `v0.10.2` 已推送（`v0.8.0` 起剧情卡司改为全量扫描，`v0.8.2` 起地区信号要求票数与占比，`v0.8.3` 起 BOSS/主线核心整体票数 ×0.95 并固定输出结果表格，`v0.9.0` 起联动剧情只加 2%、首次进池超 4 年的异格 +18%，`v0.10.0` 起按地区附带干员档案/密录线索，`v0.10.1` 起补位重跑不再让「识别 N 名」数字漂移，`v0.10.2` 起异格理由补上密录出场次数）。
+- npm：已发布 [`dsh-ark-wiki@0.10.2`](https://www.npmjs.com/package/dsh-ark-wiki)（2026-10-22）。当前发版方式仍是本地 `npm publish --access public`（凭一次性的 bypass token）；[`.github/workflows/release.yml`](.github/workflows/release.yml) 已写好 tag 触发 + **可信发布（OIDC）+ provenance** 的流水线，登记 Trusted Publisher 并在仓库变量里设 `NPM_TRUSTED_PUBLISHING=true` 后即自动接管，届时不再需要任何 `NPM_TOKEN`。改用 OIDC 的推荐理由是 npm 计划在 2027-01 关闭 bypass token 的直发权限。
 - dsh-plugin.org：收录申请已提交（[dshplugin/dsh-plugin-hub#324](https://github.com/dshplugin/dsh-plugin-hub/issues/324)），等待人工核实时状态为 `unconfirmed`。
 
 完整步骤与已知阻塞见 [RELEASING.md](./RELEASING.md)。

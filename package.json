@@ -1,6 +1,6 @@
 {
   "name": "dsh-ark-wiki",
-  "version": "0.10.1",
+  "version": "0.10.2",
   "description": "Arknights (明日方舟) tools for DSH: PRTS Wiki lookup (operators, skills, talents, archives, items, stages, story, worldbook) plus a story-cast based predictor for unreleased characters, alters and banner schedules.",
   "license": "MIT",
   "author": "dsh-ark-wiki contributors",

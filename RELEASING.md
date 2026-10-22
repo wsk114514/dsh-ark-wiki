@@ -50,7 +50,7 @@ CI：`.github/workflows/ci.yml` 在 push / PR 时执行 `npm ci` → `npm test` 
 
 ## 2. 版本与兼容声明
 
-- `version`：当前 `0.10.1`。以后每次发布递增，不要复用版本号（npm 上版本永久占用）。
+- `version`：当前 `0.10.2`。以后每次发布递增，不要复用版本号（npm 上版本永久占用）。
 - `engines.dsh: ">=0.2.1-rc.1"`：宿主据此决定是否加载。DSH 从 **0.2.1-alpha.4** 起优先读
   `engines.dsh`，不再读 `peerDependencies` 里的 `@deepseek-ai/dsh*` 范围；更老的宿主才走 peer 检查。
   **不要**在 `dependencies` 里列 `@deepseek-ai/*`（会被 pnpm 装进 profile，和宿主形成双实例）。
@@ -67,7 +67,7 @@ npm whoami        # 应打印你的用户名，而不是 ENEEDAUTH
 
 git init
 git add -A
-git commit -m "feat: dsh-ark-wiki 0.10.1 - Arknights PRTS lookup + story-cast predictions for DSH"
+git commit -m "feat: dsh-ark-wiki 0.10.2 - Arknights PRTS lookup + story-cast predictions for DSH"
 
 # 在 GitHub 上新建同名公开仓库，然后：
 git remote add origin https://github.com/<你的用户名>/dsh-ark-wiki.git
@@ -84,15 +84,15 @@ arknights
 prts
 ```
 
-### npm 发布（现状：0.10.1 已上线）
+### npm 发布（现状：0.10.2 已上线）
 
-`dsh-ark-wiki@0.10.1` 于 2026-10-22 发布（0.10.0 于 2026-10-21；0.10.1 修正了补位重跑时「识别 N 名未实装/待确认人物」数字漂移的问题）：`npm publish --access public`，凭据是一次性使用的 granular access token（勾选 *Bypass 2FA*）。**当前默认路径仍是这条本地直发**；OIDC 流程已经写好，但需要先做一次 2FA 配置才会启用：
+`dsh-ark-wiki@0.10.2` 于 2026-10-22 发布（0.10.1 修正了补位重跑时「识别 N 名未实装/待确认人物」数字漂移的问题，0.10.2 让异格候选的理由补上密录出场次数）：`npm publish --access public`，凭据是一次性使用的 granular access token（勾选 *Bypass 2FA*）。**当前默认路径仍是这条本地直发**；OIDC 流程已经写好，但需要先做一次 2FA 配置才会启用：
 
 1. **一次性配置 trusted publisher**（需要过一次交互式 2FA——安全密钥 / passkey；bypass token 不能代替，实测连 `npm trust list` 都返回 403）：
    - 网页：npmjs.com → 包页面 → Settings → **Trusted Publishers** → Add publisher → GitHub Actions，填 repo `wsk114514/dsh-ark-wiki`、workflow 文件名 `release.yml`，environment 留空。
    - 或 CLI：`npx npm@11 trust github dsh-ark-wiki --repo wsk114514/dsh-ark-wiki --file release.yml --allow-publish -y`
 2. **启用流水线**：在仓库 Settings → Secrets and variables → Actions → Variables 里加 `NPM_TRUSTED_PUBLISHING = true`。在此之前 `.github/workflows/release.yml` 的 publish job 被 `if:` 守卫住，打 tag 不会误跑一个注定 403 的任务。
-3. **启用后发版只打 tag**：`git tag -a v0.10.1 -m "..." && git push origin v0.10.1`。流水线用 GitHub Actions 的 OIDC 身份换取短期凭据，执行 `npm publish --provenance`，仓库与本地都不需要 `NPM_TOKEN`，包页还会显示 provenance 徽章。
+3. **启用后发版只打 tag**：`git tag -a v0.10.2 -m "..." && git push origin v0.10.2`。流水线用 GitHub Actions 的 OIDC 身份换取短期凭据，执行 `npm publish --provenance`，仓库与本地都不需要 `NPM_TOKEN`，包页还会显示 provenance 徽章。
 4. **时机**：npm 的 2FA-bypass token 直发权限预计 **2027-01** 起完全收紧（之后只允许 staged publish + 人工批准），所以 OIDC 不是可选项而是迟早要迁。
 5. 首次发布用的 bypass token 已经用完，可在 npmjs.com 的 Access Tokens 页面吊销（`.npmrc.bak-20261021` 里的旧 token 同理）。
 
@@ -127,7 +127,7 @@ dsh plugin --profile web add dsh-ark-wiki
 ```powershell
 npm pack
 # 在临时空目录里装 tarball，再直接用 Node 加载打包产物
-npm i C:\path\to\dsh-ark-wiki-0.10.1.tgz --no-audit --no-fund
+npm i C:\path\to\dsh-ark-wiki-0.10.2.tgz --no-audit --no-fund
 node -e "import('dsh-ark-wiki').then(async m => { const reg=[]; await m.apply({ tools:{ register:t=>(reg.push(t),()=>{}) }, effect:f=>f() }); console.log(reg.map(t=>t.name)); const v=await reg[0].execute({query:'银灰'},{}); console.log(v.status, v.entry.name, v.entry.skills.length, v.entry.talents.length); })"
 ```
 
@@ -203,7 +203,7 @@ MIT（游戏数据与 wiki 文本版权归 Hypergryph / PRTS，插件为非官�
 
 - 用详情页 URL 替换 README 顶部徽章中的 `<owner>/<slug>`：
   `[![Listed on dsh-plugin.org](https://dsh-plugin.org/badges/listed.svg)](https://dsh-plugin.org/plugins/<owner>/<slug>)`
-- 打 git tag 并写 Release：`git tag v0.10.1 && git push --tags`。
+- 打 git tag 并写 Release：`git tag v0.10.2 && git push --tags`。
 - 后续发版：改 `version` → `npm publish` → `git tag`。不要 force-push 已发布 tag。
 
 ## 7. 合规提醒
