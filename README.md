@@ -1,42 +1,74 @@
 # dsh-ark-wiki
 
-为 DSH 提供两个模型可调用的工具：`ark_wiki_lookup` 查询 PRTS Wiki 的《明日方舟》数据（干员及其技能/天赋/档案/密录、物品、关卡、剧情、干员出场表与「泰拉大典」世界观考据），返回结构化结果，由模型据此作答；`ark_banner_predict` 默认根据剧情卡司快照做**概率性**的新角色 / 异格候选预测（剧情里反复出现但没进过卡池的人物、长期无新剧情的干员异格），也可按 PRTS「卡池一览」的历史排期预测下期卡池与 UP 干员；两者都带置信度、理由与信号。
+**在 DSH 里查《明日方舟》的一切，顺手预测下一个进卡池的人。**
+
+装上它，你的 AI 助手就能直接读 PRTS Wiki——干员、技能、天赋、档案、密录、物品、关卡、剧情、干员出场表、泰拉大典世界观——并基于 2019 年以来 **1495 段剧情**的卡司统计，给出**概率性**的新角色 / 异格与卡池排期预测。每条结论都带置信度、依据，以及「它可能错在哪」。
 
 [![CI](https://github.com/wsk114514/dsh-ark-wiki/actions/workflows/ci.yml/badge.svg)](https://github.com/wsk114514/dsh-ark-wiki/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/dsh-ark-wiki.svg)](https://www.npmjs.com/package/dsh-ark-wiki)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-> **安装方式：npm 或 GitHub 源码**。已在 npm 发布 [`dsh-ark-wiki@0.10.0`](https://www.npmjs.com/package/dsh-ark-wiki)；后续版本先用 `npm publish` 直发，tag 触发的可信发布（OIDC）流水线已备好、登记 Trusted Publisher 后即可启用；dsh-plugin.org 收录申请已提交、等待人工核实。
+```bash
+dsh plugin --profile web add dsh-ark-wiki   # npm；源码安装见「安装」
+```
 
-> **非官方粉丝项目**：与 Hypergryph（鹰角网络）、《明日方舟》官方及 PRTS Wiki 均无隶属关系；所有游戏数据与 wiki 文本的版权归原权利方，本项目仅做实时查询与展示，仅供个人非商业用途。详见[免责声明](#免责声明与权限)。
+然后直接问：
+
+- 「阿米娅的属性、技能和天赋」
+- 「至纯源石是干什么用的」「1-7 的掉落和敌人」
+- 「0-1 坍塌 行动前 有哪些台词」「12F 干员密录」
+- 「克莱门莎最早在哪个剧情出场」——返回按时间排序的完整登场表
+- 「下个版本回阿戈尔的话，谁最可能实装？」「莱塔尼亚的下一个可能角色」——走剧情卡司预测
+
+> **非官方粉丝项目**：与 Hypergryph（鹰角网络）、《明日方舟》官方及 PRTS Wiki 均无隶属关系；所有游戏数据与 wiki 文本的版权归原权利方，本项目仅做实时查询与展示，仅供个人非商业用途。详见[免责声明与权限](#免责声明与权限)。
+
+## 它长什么样
+
+**查资料**——问「克莱门莎最早在哪个剧情出场」：返回她最早登场的剧情 `BP-ST-1 浪潮守望者`（2024-06-05）、主线/活动/密录分布，以及按开放时间排序的完整登场表（可点击跳 PRTS）。
+
+**猜卡池**——问「卡西米尔下个版本会出哪些新角色」，一次真实运行的节选：
+
+| 顺序 | 角色 | 类型 | 置信度 | 关键依据 |
+| --- | --- | --- | --- | --- |
+| 1 | 光头马丁 | 新角色 | medium | 剧情 28 段，卡西米尔占其出场 74%，尚未实装 |
+| 2 | 发言人马克维茨 | 新角色 | medium | 剧情 20 段，卡西米尔占 71% |
+| 3 | 发言人麦基 | 新角色 | medium | 剧情 19 段，卡西米尔占 73% |
+| 4 | 鞭刃 | 异格 | medium | 36 次剧情出场，2.9 年无新剧情，首次进池 2020-10-15（已 6 年） |
+
+> 依据：扫描 1495 段 2019-01-01 起的剧情，识别 766 名未实装/待确认人物、88 名异格候选；候选已在 PRTS「干员一览」（434 名干员）范围内按标题检索复核——比如「玛嘉烈」命中页面「玛嘉烈・临光」，其实就是干员「临光」，会从候选中剔除。
+>
+> 注意：这是概率性预测，不是官方排期；`confidence: high` 只表示信号共振，不保证命中。
+
+## 能查什么
+
+| 类别 | 覆盖 | 例子 |
+| --- | --- | --- |
+| 干员 `operator` | 属性、技能（含专精）、天赋、基建技能、体检档案、档案资料、密录列表 | 「阿米娅」「银灰」 |
+| 物品 `item` | 稀有度、描述、用途、获得方式 | 「至纯源石」 |
+| 关卡 `stage` | 理智消耗、推荐等级、掉落、敌人、突袭条件、关联剧情 | 「1-7」「S4-7」 |
+| 剧情 `story` | 主线/活动/密录台词、登场角色、干员出场时间线 | 「0-1 坍塌 行动前」「克莱门莎 出场」 |
+| 世界观 `world` | 泰拉大典 143 页：地理、组织、种族、人物考据、百科、年表、词库 | 「矿石病」「维多利亚的首都」 |
+| 预测 `predict` | 新角色/异格候选；常驻、限定、复刻、中坚卡池排期 | 「下个版本回阿戈尔？」「莱塔尼亚的下一个可能角色」 |
+
+> 生态：已收录于 [awesome-dsh-plugin](https://awesome-dsh-plugin.com/p/wsk114514/dsh-ark-wiki/)（category: tools），npm 包为 [`dsh-ark-wiki`](https://www.npmjs.com/package/dsh-ark-wiki)。
 
 ## 安装
 
-### 方式一：从 GitHub 源码安装（当前可用）
-
-```bash
-# 1. 装到目标 profile（把 web 换成 desktop / 你实际使用的 profile 名）
-dsh plugin --profile web add github:wsk114514/dsh-ark-wiki
-# 2. 把包名 "dsh-ark-wiki" 写进该 profile package.json 的 dsh.profile.bundles 数组
-```
-
-### 方式二：npm（推荐）
-
-包已发布到 npm，直接安装即可：
+### 方式一：npm（推荐）
 
 ```bash
 dsh plugin --profile web add dsh-ark-wiki
+# 若插件未自动生效，把包名 "dsh-ark-wiki" 写进该 profile package.json 的 dsh.profile.bundles 数组
 ```
 
-装完直接在对话里用自然语言提问，例如：
+### 方式二：从 GitHub 源码安装
 
-- 「阿米娅的属性、技能和天赋」
-- 「至纯源石是干什么用的」
-- 「1-7 的掉落和敌人」
-- 「0-1 坍塌 行动前 有哪些台词」「12F 干员密录」
-- 「克莱门莎最早在哪个剧情出场」（走干员出场表，返回按时间排序的完整登场列表）
-- 「矿石病是什么」「维多利亚的首都」「整合运动」「泰拉年表」（走泰拉大典世界观检索）
+```bash
+dsh plugin --profile web add github:wsk114514/dsh-ark-wiki
+# 之后同样把 "dsh-ark-wiki" 加进该 profile package.json 的 dsh.profile.bundles
+```
 
-## 安装（本地开发路径）
+### 本地开发路径（源码调试）
 
 插件是标准 DSH bundle（`dsh.bundle.patch` 指向 `cordis.patch.yml`）。已实测可用的挂载方式：
 
