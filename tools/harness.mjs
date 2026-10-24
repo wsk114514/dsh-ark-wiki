@@ -13,6 +13,7 @@ import * as T from '@deepseek-ai/dsh-tools'
 import { writeFileSync } from 'node:fs'
 import { arkWikiLookup, arkBannerPredict, name, inject, apply } from '../lib/index.js'
 import { loadStoryCast, predictDebut, loadOperatorAliases } from '../lib/debut.js'
+import { loadAnnouncedOperators } from '../lib/announced.js'
 import { collabHits, isCollabEvent, loadCollabEvents } from '../lib/collab-events.js'
 import {
   collectRegionDossiers,
@@ -312,9 +313,31 @@ contractCheck('debut prediction schema valid',
   T.validateJsonSchemaValue(arkBannerPredict.output.schema, regionDebut).length === 0,
   T.validateJsonSchemaValue(arkBannerPredict.output.schema, regionDebut))
 
-const namedDebut = predictDebut({ regions: [], entries: FIXTURE_ENTRIES, signals: storyFixture, now, body: '塔露拉会实装吗' })
-contractCheck('named unreleased character ranks first', namedDebut.candidates[0]?.operator === '塔露拉', namedDebut.candidates.map(item => item.operator))
+const announcedDebut = predictDebut({ regions: [], entries: FIXTURE_ENTRIES, signals: storyFixture, now, body: '塔露拉会实装吗' })
+contractCheck('announced (pre-release) operator is not offered as a debut candidate',
+  !announcedDebut.candidates.some(item => item.operator === '塔露拉'), announcedDebut.candidates.map(item => item.operator))
+contractCheck('announced operator is explained in the caveats',
+  /已公布实装/.test(announcedDebut.caveats) && /塔露拉/.test(announcedDebut.caveats), announcedDebut.caveats)
+contractCheck('announced list is cited in the basis',
+  /已公布名单：/.test(announcedDebut.prediction_basis), announcedDebut.prediction_basis)
+
+const announcedIndex = loadAnnouncedOperators()
+contractCheck('announced operator list is available',
+  announcedIndex.missing === false && announcedIndex.count >= 3 && announcedIndex.byName.has('小皇帝'),
+  { missing: announcedIndex.missing, count: announcedIndex.count })
+
+const namedDebut = predictDebut({ regions: [], entries: FIXTURE_ENTRIES, signals: storyFixture, now, body: '维特会实装吗' })
+contractCheck('named unreleased character ranks first', namedDebut.candidates[0]?.operator === '维特', namedDebut.candidates.map(item => item.operator))
 contractCheck('named hint is stated in the basis', /hint 提到的未实装人物/.test(namedDebut.prediction_basis), namedDebut.prediction_basis)
+
+// Ussas main story: the announced six-stars must not come back as "unreleased" candidates,
+// and region votes must ignore the resident Rhodes Island crowd votes.
+const ussasDebut = predictDebut({ regions: ['乌萨斯'], entries: FIXTURE_ENTRIES, signals: storyFixture, now })
+contractCheck('ussas hint excludes announced operators',
+  !ussasDebut.candidates.some(item => ['塔露拉', '费奥多尔', '内卫'].includes(item.operator)),
+  ussasDebut.candidates.map(item => item.operator))
+contractCheck('region share ignores resident Rhodes Island votes',
+  /排除常驻机构「罗德岛」/.test(ussasDebut.prediction_basis), ussasDebut.prediction_basis)
 
 const alterStory = {
   byOperator: new Map([
@@ -650,12 +673,22 @@ const cases = mode === 'offline'
           && (value.prediction_basis.match(/按标题检索/g) ?? []).length === 1
       },
       {
+        // 已公布实装：塔露拉已被官方前瞻确认为六星，虽然 PRTS 干员页尚未建立，
+        // 也不能再作为「待实装新角色」候选，只应在 caveats 里写明「已公布实装」。
         tool: arkBannerPredict,
         args: { hint: '塔露拉会实装吗' },
-        assert: value => value.candidates.some(item => item.operator === '塔露拉')
+        assert: value => !value.candidates.some(item => item.operator === '塔露拉')
           && value.candidates.every(item => item.kind === 'new' || item.kind === 'alter')
-          // BOSS 模板 / 主线核心整体票数 ×0.95，理由里要写明
-          && value.candidates.some(item => item.operator === '塔露拉' && /下调 5%/.test(item.reason))
+          && /已公布实装/.test(value.caveats)
+          && /已公布名单/.test(value.prediction_basis)
+      },
+      {
+        // 乌萨斯主线：前瞻已公布三位六星，候选里不应再出现他们；地区占比要排除「罗德岛」带票。
+        tool: arkBannerPredict,
+        args: { hint: '乌萨斯下个版本会出哪些新角色' },
+        assert: value => !value.candidates.some(item => ['塔露拉', '费奥多尔', '内卫'].includes(item.operator))
+          && /排除常驻机构「罗德岛」/.test(value.prediction_basis)
+          && /排除常驻机构「罗德岛」/.test(value.caveats)
       },
       {
         // 地区票过滤：普瑞赛斯（拉特兰 5/69）与奥卢斯（拉特兰 4/22）曾因同场
