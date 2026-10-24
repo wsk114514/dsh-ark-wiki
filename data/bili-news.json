@@ -1,0 +1,161 @@
+{
+  "generatedAt": "2026-10-24",
+  "source": {
+    "name": "明日方舟（B 站官方账号）",
+    "mid": 161775300,
+    "spaceUrl": "https://space.bilibili.com/161775300",
+    "note": "只收录带文字的视频标题/文案；图文长图公告在 API 里没有文本。"
+  },
+  "window": {
+    "from": "2026-10-02",
+    "to": "2026-10-24",
+    "fetched": 72,
+    "kept": 14,
+    "pages": 3
+  },
+  "operators": [
+    {
+      "name": "克莱门莎",
+      "date": "2026-10-06",
+      "title": "《明日方舟》干员「克莱门莎」技能展示PV",
+      "url": "https://www.bilibili.com/video/BV1zhHW6REAd"
+    }
+  ],
+  "events": [
+    {
+      "type": "season",
+      "name": "感谢庆典",
+      "date": "2026-10-24",
+      "title": "《明日方舟》2026「感谢庆典」活动宣传PV",
+      "url": "https://www.bilibili.com/video/BV1fjHP6eECY"
+    },
+    {
+      "type": "SideStory",
+      "name": "时间啊，向前！",
+      "date": "2026-10-24",
+      "title": "《明日方舟》SideStory「时间啊，向前！」活动先导PV",
+      "url": "https://www.bilibili.com/video/BV1PmHP6VEcv"
+    },
+    {
+      "type": "SideStory",
+      "name": "昨日海",
+      "date": "2026-10-06",
+      "title": "《明日方舟》干员「克莱门莎」技能展示PV",
+      "url": "https://www.bilibili.com/video/BV1zhHW6REAd"
+    }
+  ],
+  "items": [
+    {
+      "id": "1262771941853364229",
+      "date": "2026-10-24",
+      "type": "AV",
+      "title": "明日方舟2026感谢庆典印象曲 - Когда душе твоей больно by Ploho",
+      "text": "塞壬唱片-MSR携手@PLOHO乐队 ，打造明日方舟2026感谢庆典印象曲《Когда душе твоей больно》 作词/作曲/编曲 Viktor Uzhakov 白雾与火光勾勒出灵魂的轮廓， 浓烟褪去，大地仍在呼吸。",
+      "url": "https://www.bilibili.com/video/BV17pHK6MEHe"
+    },
+    {
+      "id": "1262764202282451041",
+      "date": "2026-10-24",
+      "type": "AV",
+      "title": "前探泰拉：边际 TERRA IN SIGHT:BOUNDARY",
+      "text": "在过往千万年的历史中，人们也曾无数次认为自己已然触碰到了这片大地的边际。 就像现在的我们一样。",
+      "url": "https://www.bilibili.com/video/BV1nGHP6TEsn"
+    },
+    {
+      "id": "1262761621023883285",
+      "date": "2026-10-24",
+      "type": "AV",
+      "title": "《罗德岛学院》PV",
+      "text": "10月25日12:00，记得来学校喔！ 更多内容，欢迎博士们持续关注《明日方舟》官方自媒体账号。",
+      "url": "https://www.bilibili.com/video/BV1RbHK6AEei"
+    },
+    {
+      "id": "1262756492878020614",
+      "date": "2026-10-24",
+      "type": "FORWARD",
+      "title": "",
+      "text": "《明日方舟》有声剧「风雪过境」现已正式上架@喜马拉雅APP ，欢迎博士们收听。#明日方舟##明日方舟有声剧活动#",
+      "url": "https://t.bilibili.com/1262756492878020614"
+    },
+    {
+      "id": "1262750024605892643",
+      "date": "2026-10-24",
+      "type": "AV",
+      "title": "《明日方舟》× 名创优品「秋意茶话会」合作宣传PV",
+      "text": "暖光浸木，落叶叩窗。 明日方舟携手@MINISO名创优品 ，邀博士共赴茶会，叙一杯焦糖色的午后。 更多活动详情，请关注名创优品官方自媒体账号。",
+      "url": "https://www.bilibili.com/video/BV16QHP6zEDa"
+    },
+    {
+      "id": "1262735851219058710",
+      "date": "2026-10-24",
+      "type": "AV",
+      "title": "《明日方舟》2026「感谢庆典」活动宣传PV",
+      "text": "《明日方舟》2026「感谢庆典」活动宣传PV 至此，我们理应相信：新时代必不辜负至死都渴盼它到来的人们。 ———————————— 详细活动内容敬请关注《明日方舟》游戏内相关公告。",
+      "url": "https://www.bilibili.com/video/BV1fjHP6eECY"
+    },
+    {
+      "id": "1262734562729918530",
+      "date": "2026-10-24",
+      "type": "AV",
+      "title": "《明日方舟》SideStory「时间啊，向前！」活动先导PV",
+      "text": "《明日方舟》SideStory「时间啊，向前！」活动先导PV 此后不必再特别提起谁的名字，人们只会永远记住那团火。 ———————————— 详细活动内容敬请关注《明日方舟》游戏内相关公告。",
+      "url": "https://www.bilibili.com/video/BV1PmHP6VEcv"
+    },
+    {
+      "id": "1259695611361361956",
+      "date": "2026-10-16",
+      "type": "FORWARD",
+      "title": "",
+      "text": "「核聚变游戏展2026北京站」《明日方舟》参展情报公开",
+      "url": "https://t.bilibili.com/1259695611361361956"
+    },
+    {
+      "id": "1257870559520227363",
+      "date": "2026-10-11",
+      "type": "AV",
+      "title": "《明日方舟》「书行山海」特别公益PV",
+      "text": "书页翻过山海，故事走向四方。 鹰角网络携手韬奋基金会，助力全民阅读推广。我们希望通过图书捐赠和阅读分享，让知识与故事抵达更多的远方。 特别鸣谢：韬奋基金会",
+      "url": "https://www.bilibili.com/video/BV1NmpG6uEar"
+    },
+    {
+      "id": "1257777758145085477",
+      "date": "2026-10-11",
+      "type": "AV",
+      "title": "《明日方舟》× 国家图书馆「恒远津梁」合作宣传PV",
+      "text": "思想以典籍为舟，横渡岁月，沿流千载。 亘古的文明先声，于今时回荡不绝。 明日方舟携手@国家图书馆 ，邀博士共览书卷，踏上今昔记忆的津梁。",
+      "url": "https://www.bilibili.com/video/BV1Gmpu6rE4w"
+    },
+    {
+      "id": "1257035583508709491",
+      "date": "2026-10-09",
+      "type": "AV",
+      "title": "《明日方舟》EP - 大地之盐",
+      "text": "10 月 9 日 大地之盐 正式上架各音乐平台 【专辑介绍】 褒奖、诋毁、信任、怀疑、怜悯、迁怒，一滴远离大海的水。 如今它只是盐。 【歌曲列表】 大地之盐 大地之盐 (Instrumental)",
+      "url": "https://www.bilibili.com/video/BV1Q6H96cEoW"
+    },
+    {
+      "id": "1255922332308865041",
+      "date": "2026-10-06",
+      "type": "AV",
+      "title": "《明日方舟》干员「克莱门莎」技能展示PV",
+      "text": "《明日方舟》干员「克莱门莎」技能展示PV ———————————— 《明日方舟》SideStory「昨日海」活动即将开启 更多活动详情内容详见游戏内公告。",
+      "url": "https://www.bilibili.com/video/BV1zhHW6REAd"
+    },
+    {
+      "id": "1254809102559739974",
+      "date": "2026-10-03",
+      "type": "AV",
+      "title": "《明日方舟》SideStory「昨日海」活动宣传PV",
+      "text": "《明日方舟》SideStory「昨日海」活动即将开启 “港都的每一块砖与每一片瓦，它承载的每一个昨天与每一个明天，都属于我们。” ———————————— 详细活动内容敬请关注《明日方舟》官网及游戏内相关公告。",
+      "url": "https://www.bilibili.com/video/BV1Rxam6kEtU"
+    },
+    {
+      "id": "1254468906744020999",
+      "date": "2026-10-02",
+      "type": "FORWARD",
+      "title": "",
+      "text": "恭喜@好耶椰叶@游灵66666@吃个饭团解解谗等10位同学中奖，已私信通知，详情请点击抽奖查看。",
+      "url": "https://t.bilibili.com/1254468906744020999"
+    }
+  ]
+}

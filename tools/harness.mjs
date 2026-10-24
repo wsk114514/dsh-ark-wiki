@@ -14,6 +14,13 @@ import { writeFileSync } from 'node:fs'
 import { arkWikiLookup, arkBannerPredict, name, inject, apply } from '../lib/index.js'
 import { loadStoryCast, predictDebut, loadOperatorAliases } from '../lib/debut.js'
 import { loadAnnouncedOperators } from '../lib/announced.js'
+import {
+  extractEventAnnouncements,
+  extractOperatorAnnouncements,
+  loadBiliNews,
+  matchRegionMentions,
+  summarizeBiliNews
+} from '../lib/bili-news.js'
 import { collabHits, isCollabEvent, loadCollabEvents } from '../lib/collab-events.js'
 import {
   collectRegionDossiers,
@@ -338,6 +345,35 @@ contractCheck('ussas hint excludes announced operators',
   ussasDebut.candidates.map(item => item.operator))
 contractCheck('region share ignores resident Rhodes Island votes',
   /排除常驻机构「罗德岛」/.test(ussasDebut.prediction_basis), ussasDebut.prediction_basis)
+
+// --- 0.11.0: Bilibili official-account snapshot (operator PV / event PV) ---
+const biliNews = loadBiliNews()
+contractCheck('bilibili official news snapshot is available',
+  biliNews.missing === false && biliNews.items.length >= 5,
+  { missing: biliNews.missing, items: biliNews.items.length, generatedAt: biliNews.generatedAt })
+contractCheck('bilibili snapshot parses operator PV and event PV',
+  biliNews.operators.length >= 1 && biliNews.events.length >= 1,
+  { operators: biliNews.operators.map(item => item.name), events: biliNews.events.map(item => item.name) })
+contractCheck('debut basis cites the official bilibili dynamics',
+  /官方动态（B 站「明日方舟」/.test(ussasDebut.prediction_basis), ussasDebut.prediction_basis)
+contractCheck('debut caveats flag the bilibili text limitation',
+  /官方动态只覆盖视频标题与文案/.test(ussasDebut.caveats), ussasDebut.caveats)
+
+const fakeNews = [
+  { id: '1', date: '2026-10-24', type: 'AV', title: '《明日方舟》干员「塔露拉」技能展示PV', text: '' },
+  { id: '2', date: '2026-10-23', type: 'AV', title: '《明日方舟》SideStory「时间啊，向前！」活动先导PV', text: '乌萨斯的雪原上，火光未熄。' }
+]
+contractCheck('operator PV parser reads the name inside 「」',
+  extractOperatorAnnouncements(fakeNews)[0]?.name === '塔露拉', extractOperatorAnnouncements(fakeNews))
+contractCheck('event PV parser reads the SideStory name',
+  extractEventAnnouncements(fakeNews)[0]?.name === '时间啊，向前！', extractEventAnnouncements(fakeNews))
+contractCheck('region mentions are counted against the hinted region',
+  matchRegionMentions(fakeNews, ['乌萨斯', '阿戈尔']).get('乌萨斯')?.count === 1,
+  [...matchRegionMentions(fakeNews, ['乌萨斯', '阿戈尔']).entries()])
+contractCheck('news summary names the event and the operator PV',
+  /时间啊，向前！/.test(summarizeBiliNews(fakeNews, { days: 90, now }) ?? '') &&
+  /塔露拉/.test(summarizeBiliNews(fakeNews, { days: 90, now }) ?? ''),
+  summarizeBiliNews(fakeNews, { days: 90, now }))
 
 const alterStory = {
   byOperator: new Map([

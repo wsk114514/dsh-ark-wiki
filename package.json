@@ -1,6 +1,6 @@
 {
   "name": "dsh-ark-wiki",
-  "version": "0.10.3",
+  "version": "0.11.0",
   "description": "Arknights (明日方舟) tools for DSH: PRTS Wiki lookup (operators, skills, talents, archives, items, stages, story, worldbook) plus a story-cast based predictor for unreleased characters, alters and banner schedules.",
   "license": "MIT",
   "author": "dsh-ark-wiki contributors",
@@ -11,6 +11,7 @@
     "test:live": "node tools/harness.mjs live",
     "data:cast": "node tools/build-story-cast.mjs && node tools/build-story-aliases.mjs && node tools/build-operator-aliases.mjs",
     "data:collab": "node tools/build-collab-events.mjs",
+    "data:bili": "node tools/build-bili-news.mjs",
     "demo": "node tools/build-demo.mjs",
     "pack:check": "npm pack --dry-run"
   },
