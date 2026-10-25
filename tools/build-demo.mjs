@@ -154,7 +154,7 @@ function lookupSection(envelope) {
     </div>
     <p class="reason">最早登场：<strong>${esc(entry.earliest?.title ?? '—')}</strong>
       ${entry.earliest?.date ? `（${esc(entry.earliest.date)}）` : ''}；
-      共 ${appearances.length} 条记录，下表只列前 10 条。</p>
+      共 ${entry.total ?? appearances.length} 条记录，下表只列前 ${Math.min(appearances.length, 10)} 条。</p>
     <table>
       <thead><tr><th>日期</th><th>剧情</th><th>类型</th></tr></thead>
       <tbody>${rows}</tbody>

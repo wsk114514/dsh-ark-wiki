@@ -109,7 +109,7 @@ dsh plugin --profile desktop add C:\path\to\dsh-ark-wiki
 
 `category` 省略时按查询词自动判定：含「泰拉大典 / 世界观 / 考据 / 年表 / 词库」时先查泰拉大典；含「行动前 / 行动后 / 密录 / 剧情 / 序曲 / 出场 / 戏份 / 登场」或 `/BEG`、`/END` 时先当剧情查；形如 `1-7`、`S4-7`、`CE-5` 的代号先当关卡查；其余先查物品（仅接受完全同名），再查干员，然后关卡、剧情，最后泰拉大典。
 
-剧情类别同时接受剧情页标题（`0-1 坍塌 行动前`）、章节/活动名（`黑暗时代·上`）与**干员名 + 出场**（`克莱门莎 出场`）；章节名返回 `candidates`（最多 8 条），模型可据此再查具体标题；干员出场会返回该干员在主线/活动/密录里的完整登场表。
+剧情类别同时接受剧情页标题（`0-1 坍塌 行动前`）、章节/活动名（`黑暗时代·上`）与**干员名 + 出场**（`克莱门莎 出场`）；章节名返回 `candidates`（默认最多 5 条），模型可据此再查具体标题；干员出场会返回该干员在主线/活动/密录里的完整登场表。
 
 世界观类别（`world`）覆盖 PRTS「泰拉大典」命名空间（143 页：角色/地理/组织/百科/生物/道具/剧情/关卡/成就/集成战略等）与附表 `泰拉年表`、`泰拉词库`、`泰拉文字`：先按页面标题精确/前缀匹配，再退到「泰拉大典」命名空间全文检索，解析其中的 `{{角色考据}}`/`{{地理考据}}`/`{{组织考据}}`/`{{种族考据}}`/`{{百科词条}}` 块；`泰拉词库` 另做译名对照（中文/英文/日文）。
 
@@ -122,7 +122,7 @@ dsh plugin --profile desktop add C:\path\to\dsh-ark-wiki
 | `query` | 原始查询词 |
 | `matchedBy` | `exact` / `prefix` / `fuzzy` / `redirect` / `search` / `none` |
 | `entry` | 命中条目的结构化数据（`type: 'json'` 节点，字段随类别而定） |
-| `candidates` | 未命中时的近似条目建议（最多 8 条） |
+| `candidates` | 未命中时的近似条目建议（默认最多 5 条） |
 | `message` | 给模型看的说明（模糊匹配、未找到、错误原因） |
 | `source` | `{ endpoint, page }`，可回溯到 PRTS 页面 |
 
@@ -139,11 +139,30 @@ dsh plugin --profile desktop add C:\path\to\dsh-ark-wiki
   - `records[]`：`{ set, index, page, url }`（干员密录：密录集名、第几话、PRTS 页面；`page` 可直接用 `category: story` 查台词）
 - `item`：`name`、`itemId`、`rarity`（0 起算）、`rarityStars`、`kind`（分类）、`description`、`usage`、`obtain`、`page`
 - `stage`：`code`、`name`、`type`、`subtype`、`difficulty`、`sanityCost`、`region`、`unlock`、`recommendedLevel`、`squadLimit`、`initialCost`、`costLimit`、`lifePoints`、`enemyCount`、`mapSize`、`fastestClear`、`drillCost`、`description`、`firstClearDrops[]`、`normalDrops[]`、`extraMateriel[]`、`reward`、`terrain`、`note`、`challenge{}`、`enemies[]`、`id`（游戏内部关卡 ID）、`story{}`（`{ before, after, extra? }`，每项 `{ title, page, url }`）、`page`
-- `story`：`title`、`storyType`（主线/活动/干员密录…）、`storyGroup`（章节目录标题）、`chapter`、`kind`（`主线剧情`/`活动剧情`/`特殊剧情`/`干员密录`）、`textPath`（剧本资源路径）、`characters[]`（登场角色前 20）、`lineCount`、`truncated`、`lines[]`（最多 60 条，`{ speaker, text }`，`speaker` 为 null 表示旁白）、`operator`（干员密录所属干员）、`page`
-  - 干员出场（`kind: '干员出场'`，来自剧情类别）：`operator`、`profession`、`rarity`、`total`、`counts`（`{ main, event, memory }`）、`earliest`（最早登场 `{ title, page, group, kind, date }`，`date` 可能为 null）、`appearances[]`（最多 48 条，`{ title, page, url, column, group, kind, date }`，按开放时间 → 主线章节顺序排序）、`truncated`、`source`
+- `story`：`title`、`storyType`（主线/活动/干员密录…）、`storyGroup`（章节目录标题）、`chapter`、`kind`（`主线剧情`/`活动剧情`/`特殊剧情`/`干员密录`）、`textPath`（剧本资源路径）、`characters[]`（登场角色前 12，`ARK_WIKI_VERBOSE=1` 时为前 20）、`lineCount`、`truncated`、`lines[]`（默认最多 24 条，`{ speaker, text }`，`speaker` 为 null 表示旁白）、`operator`（干员密录所属干员）、`page`
+  - 干员出场（`kind: '干员出场'`，来自剧情类别）：`operator`、`profession`、`rarity`、`total`、`counts`（`{ main, event, memory }`）、`earliest`（最早登场 `{ title, page, group, kind, date }`，`date` 可能为 null）、`appearances[]`（默认最多 24 条，`{ title, page, url, column, group, kind, date }`，按开放时间 → 主线章节顺序排序）、`truncated`、`source`
 - `world`：`section`（人物考据/地理/组织/百科事典/生态调查/商品目录/剧情分析/附表…）、`title`、`summary`（正文首段，约 900 字）、`infobox`（地理页信息框键值，如 `{ 首都: '伦蒂尼姆' }`）、`details`（`{ 英文名, 日文名, 成员, 主要种族, 登场 }` 等模板参数，按页面可得性出现）、`sections[]`（小标题，最多 14 个）、`related[]`（`{ section, name, page, url }`，正文里的 `{{泰拉大典|…}}` 内链）、`terms[]`（`泰拉词库` 命中时为 `{ zh, en, other, ja, yostar, section }`）、`page`
 
 掉落项形如 `{ name, condition }`（`condition` 为「固定掉落」「三星获得」等，可能为 null）；敌人项形如 `{ name, count, level }`。
+
+### 输出预算与 token 开销
+
+工具默认按「模型一次读得完」的尺寸裁剪输出，而不是把原始数据整段塞进上下文；所有上限都能用环境变量调回去：
+
+| 环境变量 | 默认 | `ARK_WIKI_VERBOSE=1` | 控制什么 |
+| --- | --- | --- | --- |
+| `ARK_WIKI_STORY_LINES` | 24 | 60 | 剧情 `lines[]` 条数 |
+| `ARK_WIKI_STORY_CHARS` | 240 | 300 | 每条台词截断字符数 |
+| `ARK_WIKI_STORY_CAST` | 12 | 20 | 剧情 `characters[]` 人数 |
+| `ARK_WIKI_APPEARANCES` | 24 | 48 | 干员出场 `appearances[]` 条数 |
+| `ARK_WIKI_CANDIDATES` | 5 | 8 | 未命中时的 `candidates[]` 条数 |
+| `ARK_WIKI_ARCHIVES` | 6 | 12 | 干员档案渲染段数 |
+| `ARK_WIKI_ARCHIVE_CHARS` | 300 | 400 | 每段档案截断字符数 |
+| `ARK_WIKI_INFOBOX` / `ARK_WIKI_DETAILS` / `ARK_WIKI_TERMS` | 6 / 4 / 3 | 8 / 6 / 4 | 泰拉大典信息框 / 模板块 / 词条条数 |
+
+`ARK_WIKI_VERBOSE=1` 一次把所有上限恢复成改造前的宽松值，适合自己做数据核对；单项变量优先于它。渲染侧另有三处固定收敛：技能只写「7级 / 专3」两档、天赋只写首尾两档（完整数据仍保留在 `entry` 的 JSON 里）、档案超出段数时附一句「其余 N 段见 PRTS 干员页」。
+
+同一批查询实测（Markdown 文本字符数，默认 vs `ARK_WIKI_VERBOSE=1`）：维娜·维多利亚 2886 vs 3527、阿米娅 2220 vs 2689、剧情「0-1 坍塌 行动前」777 vs 1433、阿米娅出场表 928 vs 1599。另外两个工具的描述文本也一并收敛：`ark_wiki_lookup` 395 字符、`ark_banner_predict` 792 字符（原 2186 字符），这部分是每次请求都要付的常驻开销。
 
 ### 第二个工具：`ark_banner_predict`
 
@@ -230,6 +249,7 @@ dsh-ark-wiki/
 │   ├── collab-events.js # 联动剧情清单读取 + 联动出场段数统计（联动 +2% 弱信号）
 │   ├── announced.js     # 已公布名单读取（前瞻直播/公告兜底，见 data/announced-operators.json）
 │   ├── bili-news.js     # 官方 B 站动态快照读取：干员PV → 已公布、活动PV → 官方近况（弱信号，不参与排序）
+│   ├── limits.js        # 输出预算：各字段条数/字符上限，可被 ARK_WIKI_* 环境变量覆盖
 │   ├── operator-dossiers.js # 本地区干员的档案/密录摘句（地区线索，弱信号，不参与排序）
 │   └── banners.js       # 卡池一览解析、索引构建、hint 解析、打分与 ark_banner_predict 执行
 ├── data/
@@ -280,7 +300,8 @@ CI（`.github/workflows/ci.yml`）在每次 push / PR 时跑 `npm ci` + `npm tes
 - PRTS 用 `？？？` 占位尚未公开的天赋，这类条目会被过滤掉，因此某些干员的 `talents[]` 可能只有一条。
 - 只读公开页面，不涉及登录态；高频调用会受 PRTS 限流，插件内仅对干员列表、干员页、剧情索引与密录索引做缓存。
 - 剧情索引依赖 `Template:剧情导航` 的 wikitext 表格结构（`!` 章节 / `!` 主线|活动|剧情 / `|` 链接列表），一旦 PRTS 改版该索引会整体失效（表现为剧情查询全部 `not_found`，其余类别不受影响）。`活动一览` 由 SMW `#ask` 渲染、`干员密录一览` 由 `{{#Widget:MemoryList}}` 动态生成，两者都没有可直接解析的静态列表，因此活动剧情只覆盖导航模板里出现的条目。
-- 剧情正文只取页面内嵌的 `文本数据` 演出脚本，台词截断到 60 条、角色到 20 个；`演出补充`/分支选项不解析，纯音频/图片指令按旁白丢弃（无文本时直接跳过）。关卡与剧情的关联用「`关卡代号 + 关名 + 空格` 前缀匹配导航标题」猜出来的，个别关卡若命名不一致会漏掉 `story` 字段。
+- 剧情正文只取页面内嵌的 `文本数据` 演出脚本，默认台词截断到 24 条、角色到 12 个（`ARK_WIKI_STORY_LINES` / `ARK_WIKI_STORY_CAST` 或 `ARK_WIKI_VERBOSE=1` 可放宽到 60 条 / 20 个）；`演出补充`/分支选项不解析，纯音频/图片指令按旁白丢弃（无文本时直接跳过）。关卡与剧情的关联用「`关卡代号 + 关名 + 空格` 前缀匹配导航标题」猜出来的，个别关卡若命名不一致会漏掉 `story` 字段。
+- **默认返回是裁剪过的**：台词、出场表、档案、候选列表都按上文的「输出预算」截断，`truncated` 字段或「其余 N 段 / N 条见 PRTS 页面」提示会告诉你还有多少没返回；需要完整数据时把 `ARK_WIKI_VERBOSE=1` 打开（或只调高对应单项），而不是让模型重试查询。
 - 干员出场表依赖 `干员剧情一览/*` 的 wikitable 结构（职业二级标题 + 4 列），PRTS 改版会让整类查询失败；表格里只有剧情标题，没有集数/排序号，因此日期来自 SMW `活动开始时间`。旧主线章节（黑暗时代、异卵同生、二次呼吸、急性衰竭、靶向药物、苦难摇篮、怒号光明）在 PRTS 上没有开放时间，这部分 `date` 为 null、顺序按剧情导航估算，渲染时会明确提示；同一活动内的条目按导航顺序而不是真实游玩顺序排列。
 - 泰拉大典只有 143 个页面，角色专页仅覆盖约 100 名干员，其余角色走 `泰拉大典:角色/其他` 的 `{{角色考据}}` 汇总块；不在这些页面里的名词查不到（返回 `not_found`，不编造）。世界观搜索是「标题优先 + 全文检索兜底」的启发式，`百科/*` 目录页命中时返回整页词条摘录而非单条定义。信息框解析只取页面第一张 wikitable 的 `!键`→`|值` 配对，且对组织页/附表页禁用（这两类的表格常是布局表或编辑格式示例）。
 - 新角色 / 异格预测是**剧情启发式，不是内幕排期**：唯一依据是 2019 年以来的剧情台词统计（1495 段）与干员实装状态——「剧情里出场多」不等于「会进卡池」（大量重要 NPC 至今未实装），「很久没有新剧情」也不等于「一定异格」。`confidence` 只表示信号是否共振，`high` 也不保证命中；`prediction_basis` 里会给出数据生成日期，之后的新剧情不会被计入。**BOSS 模板 / 主线核心整体票数 ×0.95（下调 5%）是经验规则**：它假定官方会把这类「叙事分量极重」的角色留作大型活动主角，并不代表它们不会进卡池；「纯活动高频 +0.6」的补偿同理，只是修正打分口径，不是新的实装信号。**联动出场 +2% 与「首次进池超过 4 年 +18%」也是经验规则**：联动 SideStory 与泰拉主线的排期关系弱，所以只给弱信号、未出场不扣分；4 年阈值（1460 天）依据是官方倾向用异格重新介绍老干员，首次进池时间取 `ark-info` 的 `releasedAt`，取不到时该条不加权。
@@ -305,8 +326,8 @@ CI（`.github/workflows/ci.yml`）在每次 push / PR 时跑 `npm ci` + `npm tes
 
 ## 发布
 
-- GitHub：仓库已公开，`dsh-plugin` topic 已加，tag `v0.11.0`（`v0.8.0` 起剧情卡司改为全量扫描，`v0.8.2` 起地区信号要求票数与占比，`v0.8.3` 起 BOSS/主线核心整体票数 ×0.95 并固定输出结果表格，`v0.9.0` 起联动剧情只加 2%、首次进池超 4 年的异格 +18%，`v0.10.0` 起按地区附带干员档案/密录线索，`v0.10.1` 起补位重跑不再让「识别 N 名」数字漂移，`v0.10.2` 起异格理由补上密录出场次数，`v0.10.3` 起加入前瞻「已公布名单」兜底并修正地区票被「罗德岛」稀释、种族/群体说话者混进候选的问题，`v0.11.0` 起接入官方 B 站动态快照做旁证：干员技能展示PV 按已公布剔除，活动/主线 PV 只写进 `prediction_basis` 与 `caveats`、不参与打分）。
-- npm：[`dsh-ark-wiki@0.10.2`](https://www.npmjs.com/package/dsh-ark-wiki) 已发布（2026-10-22），`0.10.3` 与 `0.11.0` 尚待发布（会合并成一次 `0.11.0`）。当前发版方式仍是本地 `npm publish --access public`（凭一次性的 bypass token）；[`.github/workflows/release.yml`](.github/workflows/release.yml) 已写好 tag 触发 + **可信发布（OIDC）+ provenance** 的流水线，登记 Trusted Publisher 并在仓库变量里设 `NPM_TRUSTED_PUBLISHING=true` 后即自动接管，届时不再需要任何 `NPM_TOKEN`。改用 OIDC 的推荐理由是 npm 计划在 2027-01 关闭 bypass token 的直发权限。
+- GitHub：仓库已公开，`dsh-plugin` topic 已加，tag `v0.12.0`（`v0.8.0` 起剧情卡司改为全量扫描，`v0.8.2` 起地区信号要求票数与占比，`v0.8.3` 起 BOSS/主线核心整体票数 ×0.95 并固定输出结果表格，`v0.9.0` 起联动剧情只加 2%、首次进池超 4 年的异格 +18%，`v0.10.0` 起按地区附带干员档案/密录线索，`v0.10.1` 起补位重跑不再让「识别 N 名」数字漂移，`v0.10.2` 起异格理由补上密录出场次数，`v0.10.3` 起加入前瞻「已公布名单」兜底并修正地区票被「罗德岛」稀释、种族/群体说话者混进候选的问题，`v0.11.0` 起接入官方 B 站动态快照做旁证：干员技能展示PV 按已公布剔除，活动/主线 PV 只写进 `prediction_basis` 与 `caveats`、不参与打分，`v0.12.0` 起工具输出改为可配置的紧凑预算并收紧两个工具的描述文本）。
+- npm：[`dsh-ark-wiki@0.10.2`](https://www.npmjs.com/package/dsh-ark-wiki) 已发布（2026-10-22），`0.10.3` / `0.11.0` / `0.12.0` 尚待发布（会合并成一次 `0.12.0`）。当前发版方式仍是本地 `npm publish --access public`（凭一次性的 bypass token）；[`.github/workflows/release.yml`](.github/workflows/release.yml) 已写好 tag 触发 + **可信发布（OIDC）+ provenance** 的流水线，登记 Trusted Publisher 并在仓库变量里设 `NPM_TRUSTED_PUBLISHING=true` 后即自动接管，届时不再需要任何 `NPM_TOKEN`。改用 OIDC 的推荐理由是 npm 计划在 2027-01 关闭 bypass token 的直发权限。
 - dsh-plugin.org：收录申请已提交（[dshplugin/dsh-plugin-hub#324](https://github.com/dshplugin/dsh-plugin-hub/issues/324)），等待人工核实时状态为 `unconfirmed`。
 
 完整步骤与已知阻塞见 [RELEASING.md](./RELEASING.md)。

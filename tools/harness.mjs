@@ -165,6 +165,16 @@ const contractCheck = (label, ok, detail) => {
 }
 
 const fixtureBanners = parseBannerTables(FIXTURE_PAGE)
+const limits = await import('../lib/limits.js')
+contractCheck('output budgets default to the compact set',
+  limits.STORY_LINE_LIMIT <= 24 && limits.APPEARANCE_LIMIT <= 24
+  && limits.MAX_CANDIDATES <= 5 && limits.ARCHIVE_LIMIT <= 6,
+  {
+    storyLines: limits.STORY_LINE_LIMIT,
+    appearances: limits.APPEARANCE_LIMIT,
+    candidates: limits.MAX_CANDIDATES,
+    archives: limits.ARCHIVE_LIMIT
+  })
 contractCheck('parses two banner rows', fixtureBanners.length === 2, fixtureBanners.map(banner => banner.title))
 contractCheck('classifies rotating row as standard', fixtureBanners[0]?.kind === 'standard', fixtureBanners[0]?.kind)
 contractCheck('classifies limited row as limited', fixtureBanners[1]?.kind === 'limited', fixtureBanners[1]?.kind)
@@ -570,6 +580,7 @@ const cases = mode === 'offline'
           && value.entry.chapter === '黑暗时代·上'
           && value.entry.characters.includes('杜宾')
           && value.entry.lines.length > 10
+          && value.entry.lines.length <= 24
           && value.entry.truncated === true
           && value.entry.lines.every(line => !line.text.includes('{@'))
       },
